@@ -53,7 +53,6 @@ body {
   height: 100vh;
 }
 .logo { padding:14px 18px 14px; border-bottom:1px solid rgba(255,255,255,0.2); }
-.logo-img { width: 130px; height: auto; display: block; margin-bottom: 10px; }
 .logo-divider { height: 1px; background: rgba(255,255,255,0.2); margin: 8px 0; }
 .logo-title { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:3px; color:#ffffff; }
 .logo-sub { font-size:10px; color:rgba(255,255,255,0.7); margin-top:3px; }
@@ -234,16 +233,12 @@ body {
 <div class="sidebar">
   <div class="logo">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 70" style="width:200px;height:47px;display:block;margin-bottom:8px">
-      <!-- Cart handle curve -->
       <path d="M18 12 C12 12 10 18 10 23" stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <!-- 3 cart lines -->
       <rect x="10" y="23" width="28" height="5" rx="2.5" fill="white"/>
       <rect x="13" y="31" width="25" height="5" rx="2.5" fill="white"/>
       <rect x="16" y="39" width="22" height="5" rx="2.5" fill="white"/>
-      <!-- Wheels -->
       <circle cx="19" cy="50" r="4.5" fill="white"/>
       <circle cx="33" cy="50" r="4.5" fill="white"/>
-      <!-- korzinka text -->
       <text x="46" y="48" font-family="Arial Black, Arial, sans-serif" font-size="34" font-weight="900" fill="white" letter-spacing="0">korzinka</text>
     </svg>
     <div class="logo-divider"></div>
@@ -354,7 +349,6 @@ body {
     </div>
   </div>
 
-  <!-- KSO SECTION -->
   <div class="content" id="kso-content" style="display:none">
     <div class="kpi-grid">
       <div class="kpi">
@@ -432,7 +426,7 @@ const T = {
     kpi1: 'Всего ошибок', kpi2: 'Общая сумма',
     kpi3: 'Среднее / мес', kpi4: 'Больше всех ошибок',
     avgSub: 'ошибок в месяц',
-    chartMonthly: 'Ошибки по месяцам', chartViol: 'Типы нарушений',
+    chartMonthly: 'Ошибки по месяцам', chartViol: 'Типы нарушения',
     storesTitle: 'Рейтинг магазинов', cashiersTitle: 'Рейтинг кассиров',
     tableTitle: 'Детальная таблица',
     thKassir: 'Кассир', thDokon: 'Магазин', thSana: 'Дата',
@@ -530,10 +524,9 @@ function parseCSV(text) {
     const oy = cols[0]||'';
     const dokon = cols[1]||'';
     const kassir = cols[3]||'';
-    // Skip rows where dokon is a number (kassa number mistakenly read as store name)
     if (!oy || !dokon || !kassir) continue;
-    if (/^\d+(\.\d+)?$/.test(dokon)) continue; // skip if dokon is just a number
-    if (dokon.length < 2) continue; // skip single char store names
+    if (/^\d+(\.\d+)?$/.test(dokon)) continue; 
+    if (dokon.length < 2) continue; 
     const summa = parseFloat((cols[7]||'0').replace(/\s/g,'').replace(',','.')) || 0;
     rows.push({ oy, dokon, sana:cols[2]||'', kassir, lavozim:cols[4]||'', kassa:cols[5]||'', vaqt:cols[6]||'', summa, xatolik:cols[8]||'' });
   }
@@ -557,7 +550,6 @@ function getFiltered() {
 function buildSidebar() {
   const months = sortMonths([...new Set(ALL_DATA.map(r=>r.oy))]);
   const sel = document.getElementById('month-select');
-  const allOpt = sel.querySelector('#opt-all');
   sel.innerHTML = '';
   const ao = document.createElement('option');
   ao.value='ALL'; ao.id='opt-all'; ao.textContent=t('optAll');
@@ -655,7 +647,6 @@ function renderViolChart(data) {
   const vm = {};
   data.forEach(r => {
     if(r.xatolik) {
-      // Normalize: lowercase and trim to avoid duplicates
       const key = r.xatolik.trim().toLowerCase();
       if(!vm[key]) vm[key] = {name: r.xatolik.trim(), count: 0};
       vm[key].count++;
@@ -742,6 +733,8 @@ function sortMonths(months) {
     return (monthOrder[ma]||0) - (monthOrder[mb]||0);
   });
 }
+
+function parseKSO(text) {
   const lines = text.trim().split('\n');
   const rows = [];
   for (let i = 2; i < lines.length; i++) {
