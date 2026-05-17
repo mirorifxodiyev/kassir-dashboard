@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kassir Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface2: #f0f0f0;
+  --border: #e0e0e0;
+  --accent: #e30613;
+  --accent2: #ff3322;
+  --blue: #c8102e;
+  --green: #28a745;
+  --red: #e30613;
+  --purple: #9b1c1c;
+  --text: #1a1a1a;
+  --muted: #888888;
+  --sub: #555555;
+  --yellow: #ffd100;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+#loading {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 999; gap: 20px;
+}
+#loading h2 { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:4px; color:#e30613; }
+.spinner { width:40px; height:40px; border:3px solid #f0f0f0; border-top-color:#e30613; border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* SIDEBAR */
+.sidebar {
+  width: 230px; min-width: 230px;
+  background: #e30613;
+  border-right: 1px solid #c0000f;
+  display: flex; flex-direction: column;
+  height: 100vh;
+}
+.logo { padding:14px 18px 14px; border-bottom:1px solid rgba(255,255,255,0.2); }
+.logo-img { width: 130px; height: auto; display: block; margin-bottom: 10px; }
+.logo-divider { height: 1px; background: rgba(255,255,255,0.2); margin: 8px 0; }
+.logo-title { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:3px; color:#ffffff; }
+.logo-sub { font-size:10px; color:rgba(255,255,255,0.7); margin-top:3px; }
+
+/* LANG SWITCHER */
+.lang-bar {
+  display: flex; gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+.lang-btn {
+  flex: 1; padding: 5px 0;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.8);
+  font-size: 11px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.15s;
+}
+.lang-btn:hover { color: #ffffff; background: rgba(255,255,255,0.25); }
+.lang-btn.active {
+  background: #ffd100;
+  border-color: #ffd100;
+  color: #1a1a1a;
+}
+
+.filter-section { padding:12px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.2); }
+.filter-label { font-size:12px; font-weight:700; color:rgba(255,255,255,0.9); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; }
+.month-select {
+  width:100%; background:rgba(255,255,255,0.15);
+  border:1px solid rgba(255,255,255,0.3); border-radius:8px;
+  color:#ffffff; font-family:'DM Sans',sans-serif;
+  font-size:12px; padding:8px 10px; cursor:pointer;
+  outline:none; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='white'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
+}
+.month-select option { background:#e30613; color:#ffffff; }
+.month-select:focus { border-color:#ffd100; }
+
+.sidebar-label { padding:14px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1.5px; }
+.store-list { flex:1; overflow-y:auto; padding:4px 8px 12px; }
+.store-list::-webkit-scrollbar { width:3px; }
+.store-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.3); border-radius:2px; }
+
+.store-btn {
+  display:flex; align-items:center; justify-content:space-between;
+  width:100%; padding:7px 10px; border-radius:7px;
+  border:1px solid transparent; background:transparent;
+  color:rgba(255,255,255,0.8); font-size:12px; font-family:'DM Sans',sans-serif;
+  cursor:pointer; margin-bottom:2px; text-align:left; transition:all 0.15s;
+}
+.store-btn:hover { background:rgba(255,255,255,0.15); color:#ffffff; }
+.store-btn.active { background:#ffd100; border-color:#ffd100; color:#1a1a1a; font-weight:600; }
+.store-count { font-size:10px; background:rgba(255,255,255,0.2); color:rgba(255,255,255,0.8); padding:1px 6px; border-radius:10px; flex-shrink:0; }
+.store-btn.active .store-count { background:rgba(0,0,0,0.15); color:#1a1a1a; }
+
+/* SIGNATURE */
+.signature {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+.signature span { color: #ffd100; }
+
+/* MAIN */
+.main { flex:1; overflow-y:auto; height:100vh; }
+.main::-webkit-scrollbar { width:4px; }
+.main::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+.header {
+  padding:20px 28px 18px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10;
+  background:rgba(255,255,255,0.95); backdrop-filter:blur(12px);
+}
+.header-left h1 {
+  font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px;
+  color: #e30613;
+}
+.header-left p { font-size:11px; color:var(--sub); margin-top:2px; }
+.header-badge { background:rgba(227,6,19,0.08); border:1px solid rgba(227,6,19,0.25); border-radius:8px; padding:7px 16px; font-size:12px; color:#e30613; font-weight:600; }
+
+.content { padding:22px 26px; display:flex; flex-direction:column; gap:20px; }
+
+/* KPI */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.kpi {
+  background:#ffffff; border:1px solid var(--border);
+  border-radius:14px; padding:20px; position:relative; overflow:hidden;
+  transition:transform 0.2s,border-color 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.kpi:hover { transform:translateY(-2px); border-color:rgba(227,6,19,0.25); }
+.kpi::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#e30613; }
+.kpi.blue::after { background:#ffd100; }
+.kpi.green::after { background:#28a745; }
+.kpi.purple::after { background:#e30613; }
+.kpi-label { font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+.kpi-value { font-family:'Bebas Neue',sans-serif; font-size:38px; letter-spacing:1px; color:#e30613; line-height:1.1; margin-top:4px; }
+.kpi-sub { font-size:10px; color:var(--sub); margin-top:4px; }
+.kpi-icon { position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:32px; opacity:0.08; }
+
+.grid-2 { display:grid; grid-template-columns:3fr 2fr; gap:16px; }
+.grid-half { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+.card { background:#ffffff; border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.card-title { font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.dot { width:6px; height:6px; border-radius:50%; background:#e30613; flex-shrink:0; }
+.dot.blue { background:#ffd100; }
+.dot.green { background:#28a745; }
+.dot.purple { background:#e30613; }
+
+.bar-list { display:flex; flex-direction:column; gap:9px; }
+.bar-item-top { display:flex; justify-content:space-between; margin-bottom:4px; }
+.bar-name { font-size:11.5px; color:var(--text); }
+.bar-val { font-size:11px; color:var(--sub); font-weight:600; }
+.bar-track { height:4px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+.bar-fill { height:100%; background:linear-gradient(90deg,#e30613,#ff4444); border-radius:2px; }
+.bar-fill.green { background:linear-gradient(90deg,#ffd100,#ffea00); }
+
+.tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.tbl th { text-align:left; font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; padding:0 10px 10px; border-bottom:1px solid var(--border); }
+.tbl td { padding:9px 10px; border-bottom:1px solid rgba(33,38,45,0.5); color:var(--sub); }
+.tbl tr:last-child td { border-bottom:none; }
+.tbl tr:hover td { background:rgba(255,255,255,0.02); }
+.rank { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; font-size:11px; font-weight:700; background:var(--surface2); color:var(--sub); }
+.rank.r1 { background:rgba(227,6,19,0.15); color:#e30613; }
+.rank.r2 { background:rgba(255,209,0,0.2); color:#b38a00; }
+.rank.r3 { background:rgba(40,167,69,0.15); color:#28a745; }
+.badge { background:var(--surface2); border-radius:6px; padding:2px 8px; font-size:10px; color:var(--sub); font-weight:600; }
+
+.viol-list { display:flex; flex-direction:column; gap:7px; margin-top:12px; }
+.viol-item { display:flex; align-items:center; gap:8px; font-size:11px; }
+.viol-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.viol-name { flex:1; color:var(--sub); }
+.viol-count { font-weight:700; color:var(--text); }
+.viol-pct { color:var(--muted); font-size:10px; }
+.no-data { display:flex; align-items:center; justify-content:center; height:100px; color:var(--muted); font-size:13px; }
+
+/* TAB SWITCHER */
+.tab-switcher {
+  display: flex; gap: 4px;
+  background: #f0f0f0;
+  border-radius: 10px;
+  padding: 3px;
+}
+.tab-btn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--sub);
+  font-size: 12px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.2s;
+}
+.tab-btn.active {
+  background: #e30613;
+  color: white;
+  box-shadow: 0 2px 8px rgba(227,6,19,0.3);
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <h2 id="loading-text">YUKLANMOQDA</h2>
+  <p style="color:#484f58;font-size:12px" id="loading-sub">Ma'lumot olinmoqda...</p>
+</div>
+
+<div class="sidebar">
+  <div class="logo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 70" style="width:200px;height:47px;display:block;margin-bottom:8px">
+      <!-- Cart handle curve -->
+      <path d="M18 12 C12 12 10 18 10 23" stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <!-- 3 cart lines -->
+      <rect x="10" y="23" width="28" height="5" rx="2.5" fill="white"/>
+      <rect x="13" y="31" width="25" height="5" rx="2.5" fill="white"/>
+      <rect x="16" y="39" width="22" height="5" rx="2.5" fill="white"/>
+      <!-- Wheels -->
+      <circle cx="19" cy="50" r="4.5" fill="white"/>
+      <circle cx="33" cy="50" r="4.5" fill="white"/>
+      <!-- korzinka text -->
+      <text x="46" y="48" font-family="Arial Black, Arial, sans-serif" font-size="34" font-weight="900" fill="white" letter-spacing="0">korzinka</text>
+    </svg>
+    <div class="logo-divider"></div>
+    <div class="logo-title" id="logo-title">KASSIR NAZORAT</div>
+    <div class="logo-sub" id="logo-sub">Xatoliklar tahlili tizimi</div>
+  </div>
+
+  <div class="lang-bar">
+    <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+    <button class="lang-btn" onclick="setLang('uz')">UZ</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label" id="lbl-month">Oy tanlang</div>
+    <select class="month-select" id="month-select">
+      <option value="ALL" id="opt-all">Barcha oylar</option>
+    </select>
+  </div>
+
+  <div class="sidebar-label" id="lbl-stores">Do'konlar</div>
+  <div class="store-list" id="store-list"></div>
+
+  <div class="signature">BY <span>MIRORIF</span></div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <div class="header-left">
+      <h1 id="header-title">Barcha do'konlar</h1>
+      <p id="header-sub">Yuklanmoqda...</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="tab-switcher">
+        <button class="tab-btn active" onclick="setTab('kassir')" id="tab-kassir">🧾 Kassir</button>
+        <button class="tab-btn" onclick="setTab('kso')" id="tab-kso">🏪 КСО</button>
+      </div>
+      <div class="header-badge" id="header-badge">—</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label" id="kpi-lbl-1">Jami xatoliklar</div>
+        <div class="kpi-value" id="kpi-count">—</div>
+        <div class="kpi-sub" id="kpi-count-sub">—</div>
+        <div class="kpi-icon">⚠️</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label" id="kpi-lbl-2">Jami summa</div>
+        <div class="kpi-value" id="kpi-sum">—</div>
+        <div class="kpi-sub" id="kpi-sum-sub">—</div>
+        <div class="kpi-icon">💰</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label" id="kpi-lbl-3">O'rtacha / oy</div>
+        <div class="kpi-value" id="kpi-avg">—</div>
+        <div class="kpi-sub" id="kpi-avg-sub">xatolik oyiga</div>
+        <div class="kpi-icon">📊</div>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label" id="kpi-lbl-4">Eng ko'p xato</div>
+        <div class="kpi-value" id="kpi-top">—</div>
+        <div class="kpi-sub" id="kpi-top-sub">—</div>
+        <div class="kpi-icon">👤</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span><span id="chart-monthly-title">Oylar bo'yicha xatoliklar</span></div>
+        <div style="position:relative;height:200px"><canvas id="chart-monthly"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot blue"></span><span id="chart-viol-title">Xatolik turlari</span></div>
+        <div style="position:relative;height:140px"><canvas id="chart-viol"></canvas></div>
+        <div class="viol-list" id="viol-legend"></div>
+      </div>
+    </div>
+
+    <div class="grid-half">
+      <div class="card">
+        <div class="card-title"><span class="dot green"></span><span id="stores-title">Do'konlar reytingi</span></div>
+        <div class="bar-list" id="store-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot purple"></span><span id="cashiers-title">Kassirlar reytingi</span></div>
+        <div class="bar-list" id="cashier-bars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span><span id="table-title">Batafsil jadval</span></div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th id="th-kassir">Kassir</th>
+            <th id="th-dokon">Do'kon</th>
+            <th id="th-sana">Sana</th>
+            <th id="th-xatolik">Xatolik</th>
+            <th id="th-summa">Summa</th>
+          </tr>
+        </thead>
+        <tbody id="detail-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- KSO SECTION -->
+  <div class="content" id="kso-content" style="display:none">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Ошибок (кол-во)</div>
+        <div class="kpi-value" id="kso-err-count">—</div>
+        <div class="kpi-sub" id="kso-err-count-sub">—</div>
+        <div class="kpi-icon">⚠️</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Ошибок (сумма)</div>
+        <div class="kpi-value" id="kso-err-sum">—</div>
+        <div class="kpi-sub" id="kso-err-sum-sub">—</div>
+        <div class="kpi-icon">💰</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">Краж (кол-во)</div>
+        <div class="kpi-value" id="kso-krazh-count">—</div>
+        <div class="kpi-sub" id="kso-krazh-count-sub">—</div>
+        <div class="kpi-icon">🚨</div>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label">Краж (сумма)</div>
+        <div class="kpi-value" id="kso-krazh-sum">—</div>
+        <div class="kpi-sub" id="kso-krazh-sum-sub">—</div>
+        <div class="kpi-icon">💸</div>
+      </div>
+    </div>
+
+    <div class="grid-half">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Магазины по ошибкам</div>
+        <div class="bar-list" id="kso-err-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot green"></span>Магазины по кражам</div>
+        <div class="bar-list" id="kso-krazh-bars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>Детальная таблица КСО</div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Магазин</th>
+            <th>Месяц</th>
+            <th>Ошибка кол-во</th>
+            <th>Ошибка сумма</th>
+            <th>Кража кол-во</th>
+            <th>Кража сумма</th>
+          </tr>
+        </thead>
+        <tbody id="kso-table"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQdxxuq7HkF8gsC3g1N_fTaGZ3Ret6L71KF25I3ku3LmD2YwGQaIYSGIzfjS07mmcQVwnk-d9aHc9TA/pub?gid=1823342488&single=true&output=csv';
+const KSO_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSRlud_Dl0ETJ9F0IKKtvruONiWX-jst_3Kd8OYP_JYPmIHBNvjvZZq3Eb0GnMJOnnyWyxwG37NRr1i/pub?gid=0&single=true&output=csv';
+
+let KSO_DATA = [];
+let activeTab = 'kassir';
+
+// TRANSLATIONS
+const T = {
+  ru: {
+    loading: 'ЗАГРУЗКА', loadingSub: 'Получение данных...',
+    logoTitle: 'КОНТРОЛЬ КАССИРОВ',
+    logoSub: 'Система анализа ошибок',
+    lblMonth: 'Выберите месяц', optAll: 'Все месяцы',
+    lblStores: 'Магазины', allStores: 'Все магазины',
+    kpi1: 'Всего ошибок', kpi2: 'Общая сумма',
+    kpi3: 'Среднее / мес', kpi4: 'Больше всех ошибок',
+    avgSub: 'ошибок в месяц',
+    chartMonthly: 'Ошибки по месяцам', chartViol: 'Типы нарушений',
+    storesTitle: 'Рейтинг магазинов', cashiersTitle: 'Рейтинг кассиров',
+    tableTitle: 'Детальная таблица',
+    thKassir: 'Кассир', thDokon: 'Магазин', thSana: 'Дата',
+    thXatolik: 'Нарушение', thSumma: 'Сумма',
+    errCount: 'ош.', months: 'мес', stores: 'магазинов',
+    noData: 'Нет данных', sum: 'сум',
+    errLoad: 'Данные не загружены!', errNet: 'Проверьте подключение к интернету'
+  },
+  uz: {
+    loading: 'YUKLANMOQDA', loadingSub: "Ma'lumot olinmoqda...",
+    logoTitle: 'KASSIR NAZORAT',
+    logoSub: "Xatoliklar tahlili tizimi",
+    lblMonth: 'Oy tanlang', optAll: 'Barcha oylar',
+    lblStores: "Do'konlar", allStores: "Barcha do'konlar",
+    kpi1: 'Jami xatoliklar', kpi2: 'Jami summa',
+    kpi3: "O'rtacha / oy", kpi4: "Eng ko'p xato",
+    avgSub: 'xatolik oyiga',
+    chartMonthly: "Oylar bo'yicha xatoliklar", chartViol: 'Xatolik turlari',
+    storesTitle: "Do'konlar reytingi", cashiersTitle: 'Kassirlar reytingi',
+    tableTitle: 'Batafsil jadval',
+    thKassir: 'Kassir', thDokon: "Do'kon", thSana: 'Sana',
+    thXatolik: 'Xatolik', thSumma: 'Summa',
+    errCount: 'xato', months: 'oy', stores: "do'kon",
+    noData: "Ma'lumot yo'q", sum: "so'm",
+    errLoad: "Ma'lumot yuklanmadi!", errNet: 'Internet aloqasini tekshiring'
+  },
+  en: {
+    loading: 'LOADING', loadingSub: 'Fetching data...',
+    logoTitle: 'CASHIER CONTROL',
+    logoSub: 'Error analysis system',
+    lblMonth: 'Select month', optAll: 'All months',
+    lblStores: 'Stores', allStores: 'All stores',
+    kpi1: 'Total errors', kpi2: 'Total amount',
+    kpi3: 'Average / month', kpi4: 'Most errors',
+    avgSub: 'errors per month',
+    chartMonthly: 'Errors by month', chartViol: 'Violation types',
+    storesTitle: 'Store ranking', cashiersTitle: 'Cashier ranking',
+    tableTitle: 'Detailed table',
+    thKassir: 'Cashier', thDokon: 'Store', thSana: 'Date',
+    thXatolik: 'Violation', thSumma: 'Amount',
+    errCount: 'err', months: 'mo', stores: 'stores',
+    noData: 'No data', sum: 'sum',
+    errLoad: 'Data not loaded!', errNet: 'Check your internet connection'
+  }
+};
+
+let lang = 'ru';
+let ALL_DATA = [];
+let chartMonthly = null, chartViol = null;
+let activeStore = 'ALL';
+let activeMonth = 'ALL';
+
+function t(key) { return T[lang][key] || key; }
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['ru','uz','en'][i] === l);
+  });
+  applyLang();
+  render();
+}
+
+function applyLang() {
+  document.getElementById('loading-text').textContent = t('loading');
+  document.getElementById('loading-sub').textContent = t('loadingSub');
+  document.getElementById('logo-title').textContent = t('logoTitle');
+  document.getElementById('logo-sub').textContent = t('logoSub');
+  document.getElementById('lbl-month').textContent = t('lblMonth');
+  document.getElementById('opt-all').textContent = t('optAll');
+  document.getElementById('lbl-stores').textContent = t('lblStores');
+  document.getElementById('kpi-lbl-1').textContent = t('kpi1');
+  document.getElementById('kpi-lbl-2').textContent = t('kpi2');
+  document.getElementById('kpi-lbl-3').textContent = t('kpi3');
+  document.getElementById('kpi-lbl-4').textContent = t('kpi4');
+  document.getElementById('kpi-avg-sub').textContent = t('avgSub');
+  document.getElementById('chart-monthly-title').textContent = t('chartMonthly');
+  document.getElementById('chart-viol-title').textContent = t('chartViol');
+  document.getElementById('stores-title').textContent = t('storesTitle');
+  document.getElementById('cashiers-title').textContent = t('cashiersTitle');
+  document.getElementById('table-title').textContent = t('tableTitle');
+  document.getElementById('th-kassir').textContent = t('thKassir');
+  document.getElementById('th-dokon').textContent = t('thDokon');
+  document.getElementById('th-sana').textContent = t('thSana');
+  document.getElementById('th-xatolik').textContent = t('thXatolik');
+  document.getElementById('th-summa').textContent = t('thSumma');
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const rows = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g,''));
+    if (cols.length < 4) continue;
+    const oy = cols[0]||'';
+    const dokon = cols[1]||'';
+    const kassir = cols[3]||'';
+    // Skip rows where dokon is a number (kassa number mistakenly read as store name)
+    if (!oy || !dokon || !kassir) continue;
+    if (/^\d+(\.\d+)?$/.test(dokon)) continue; // skip if dokon is just a number
+    if (dokon.length < 2) continue; // skip single char store names
+    const summa = parseFloat((cols[7]||'0').replace(/\s/g,'').replace(',','.')) || 0;
+    rows.push({ oy, dokon, sana:cols[2]||'', kassir, lavozim:cols[4]||'', kassa:cols[5]||'', vaqt:cols[6]||'', summa, xatolik:cols[8]||'' });
+  }
+  return rows;
+}
+
+function fmtShort(n) {
+  if (n>=1000000) return (n/1000000).toFixed(1)+'M';
+  if (n>=1000) return (n/1000).toFixed(0)+'K';
+  return n.toLocaleString('ru');
+}
+function fmtFull(n) { return n.toLocaleString('ru') + ' ' + t('sum'); }
+
+function getFiltered() {
+  return ALL_DATA.filter(r => {
+    return (activeStore==='ALL' || r.dokon===activeStore) &&
+           (activeMonth==='ALL' || r.oy===activeMonth);
+  });
+}
+
+function buildSidebar() {
+  const months = [...new Set(ALL_DATA.map(r=>r.oy))].sort();
+  const sel = document.getElementById('month-select');
+  const allOpt = sel.querySelector('#opt-all');
+  sel.innerHTML = '';
+  const ao = document.createElement('option');
+  ao.value='ALL'; ao.id='opt-all'; ao.textContent=t('optAll');
+  sel.appendChild(ao);
+  months.forEach(m => {
+    const o = document.createElement('option');
+    o.value=m; o.textContent=m; sel.appendChild(o);
+  });
+  sel.value = activeMonth;
+  sel.onchange = () => { activeMonth=sel.value; render(); };
+
+  const stores = [...new Set(ALL_DATA.map(r=>r.dokon))].sort();
+  const list = document.getElementById('store-list');
+  list.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'store-btn' + (activeStore==='ALL'?' active':'');
+  allBtn.dataset.store = 'ALL';
+  allBtn.innerHTML = `<span>${t('allStores')}</span><span class="store-count">${ALL_DATA.length}</span>`;
+  allBtn.onclick = () => setStore('ALL');
+  list.appendChild(allBtn);
+
+  stores.forEach(s => {
+    const cnt = ALL_DATA.filter(r=>r.dokon===s).length;
+    const btn = document.createElement('button');
+    btn.className = 'store-btn' + (activeStore===s?' active':'');
+    btn.dataset.store = s;
+    btn.innerHTML = `<span>${s}</span><span class="store-count">${cnt}</span>`;
+    btn.onclick = () => setStore(s);
+    list.appendChild(btn);
+  });
+}
+
+function setStore(store) {
+  activeStore = store;
+  document.querySelectorAll('.store-btn').forEach(b => b.classList.toggle('active', b.dataset.store===store));
+  render();
+}
+
+function render() {
+  const data = getFiltered();
+  const storeName = activeStore==='ALL' ? t('allStores') : activeStore;
+  const monthName = activeMonth==='ALL' ? t('optAll') : activeMonth;
+  const months = [...new Set(data.map(r=>r.oy))];
+
+  document.getElementById('header-title').textContent = storeName;
+  document.getElementById('header-sub').textContent = monthName + ' • ' + data.length + ' ' + t('errCount');
+  document.getElementById('header-badge').textContent = storeName;
+
+  const total = data.length;
+  const totalSum = data.reduce((s,r)=>s+r.summa,0);
+  const avg = months.length>0 ? Math.round(total/months.length) : 0;
+  const kassirCount = {};
+  data.forEach(r => { kassirCount[r.kassir]=(kassirCount[r.kassir]||0)+1; });
+  const topK = Object.entries(kassirCount).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('kpi-count').textContent = total.toLocaleString('ru');
+  document.getElementById('kpi-count-sub').textContent = months.length+' '+t('months')+' • '+[...new Set(data.map(r=>r.dokon))].length+' '+t('stores');
+  document.getElementById('kpi-sum').textContent = fmtShort(totalSum);
+  document.getElementById('kpi-sum-sub').textContent = fmtFull(totalSum);
+  document.getElementById('kpi-avg').textContent = avg;
+  document.getElementById('kpi-avg-sub').textContent = t('avgSub');
+  if (topK) {
+    document.getElementById('kpi-top').textContent = topK[0].split(' ')[0];
+    document.getElementById('kpi-top-sub').textContent = topK[0]+' • '+topK[1]+' '+t('errCount');
+  }
+
+  renderMonthlyChart(data);
+  renderViolChart(data);
+  renderStoreBars(data);
+  renderCashierBars(data);
+  renderTable(data);
+}
+
+function renderMonthlyChart(data) {
+  const mm = {};
+  data.forEach(r => { if(!mm[r.oy]) mm[r.oy]={count:0,sum:0}; mm[r.oy].count++; mm[r.oy].sum+=r.summa; });
+  const labels = Object.keys(mm).sort();
+  if (chartMonthly) chartMonthly.destroy();
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  chartMonthly = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:t('errCount'), data:labels.map(m=>mm[m].count), backgroundColor:'rgba(227,6,19,0.75)', borderColor:'#e30613', borderWidth:1, borderRadius:4, yAxisID:'y1' },
+      { label:t('kpi2'), data:labels.map(m=>Math.round(mm[m].sum/1000)), type:'line', borderColor:'#ffd100', backgroundColor:'rgba(255,209,0,0.1)', borderWidth:2, pointRadius:4, pointBackgroundColor:'#ffd100', tension:0.4, fill:true, yAxisID:'y2' }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{labels:{color:'#555555',font:{size:10},boxWidth:10}}, tooltip:{backgroundColor:'#1a1a1a',borderColor:'#e0e0e0',borderWidth:1,titleColor:'#ffffff',bodyColor:'#cccccc'} },
+      scales:{ x:{ticks:{color:'#555555',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}}, y1:{position:'left',ticks:{color:'#555555',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}}, y2:{position:'right',ticks:{color:'#b38a00',font:{size:10}},grid:{drawOnChartArea:false}} }
+    }
+  });
+}
+
+function renderViolChart(data) {
+  const vm = {};
+  data.forEach(r => {
+    if(r.xatolik) {
+      // Normalize: lowercase and trim to avoid duplicates
+      const key = r.xatolik.trim().toLowerCase();
+      if(!vm[key]) vm[key] = {name: r.xatolik.trim(), count: 0};
+      vm[key].count++;
+    }
+  });
+  const items = Object.values(vm).sort((a,b)=>b.count-a.count);
+  const colors = ['#e30613','#ffd100','#ff8800','#28a745','#0066cc','#888888'];
+  const total = items.reduce((s,i)=>s+i.count,0);
+  if (chartViol) chartViol.destroy();
+  const ctx = document.getElementById('chart-viol').getContext('2d');
+  chartViol = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:items.map(i=>i.name), datasets:[{ data:items.map(i=>i.count), backgroundColor:colors.slice(0,items.length), borderColor:'#ffffff', borderWidth:3, hoverOffset:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#1a1a1a',borderColor:'#e0e0e0',borderWidth:1,titleColor:'#ffffff',bodyColor:'#cccccc'} } }
+  });
+  document.getElementById('viol-legend').innerHTML = items.length ? items.map((v,i)=>`
+    <div class="viol-item">
+      <div class="viol-dot" style="background:${colors[i]}"></div>
+      <div class="viol-name">${v.name}</div>
+      <div class="viol-count">${v.count}</div>
+      <div class="viol-pct">${total>0?(v.count/total*100).toFixed(0):0}%</div>
+    </div>`).join('') : `<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderStoreBars(data) {
+  const map = {};
+  data.forEach(r=>{ map[r.dokon]=(map[r.dokon]||0)+1; });
+  const items = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const max = items[0]?.[1]||1;
+  document.getElementById('store-bars').innerHTML = items.length ? items.map(([n,c])=>`
+    <div><div class="bar-item-top"><span class="bar-name">${n}</span><span class="bar-val">${c} ${t('errCount')}</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${(c/max*100).toFixed(1)}%"></div></div></div>`).join('')
+    : `<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderCashierBars(data) {
+  const map = {};
+  data.forEach(r=>{ map[r.kassir]=(map[r.kassir]||0)+1; });
+  const items = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const max = items[0]?.[1]||1;
+  document.getElementById('cashier-bars').innerHTML = items.length ? items.map(([n,c])=>`
+    <div><div class="bar-item-top"><span class="bar-name">${n}</span><span class="bar-val">${c} ${t('errCount')}</span></div>
+    <div class="bar-track"><div class="bar-fill green" style="width:${(c/max*100).toFixed(1)}%"></div></div></div>`).join('')
+    : `<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderTable(data) {
+  const sorted = [...data].sort((a,b)=>b.summa-a.summa).slice(0,30);
+  document.getElementById('detail-table').innerHTML = sorted.length ? sorted.map((r,i)=>`
+    <tr>
+      <td><span class="rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</span></td>
+      <td style="color:${i===0?'var(--accent)':i<3?'var(--text)':'var(--sub)'};font-weight:${i<3?600:400}">${r.kassir}</td>
+      <td style="color:var(--sub)">${r.dokon}</td>
+      <td style="color:var(--muted)">${r.sana}</td>
+      <td><span class="badge">${r.xatolik}</span></td>
+      <td style="font-weight:600;color:var(--text)">${r.summa>0?fmtFull(r.summa):'—'}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">${t('noData')}</td></tr>`;
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-kassir').classList.toggle('active', tab==='kassir');
+  document.getElementById('tab-kso').classList.toggle('active', tab==='kso');
+  document.querySelector('.content').style.display = tab==='kassir' ? 'flex' : 'none';
+  document.getElementById('kso-content').style.display = tab==='kso' ? 'flex' : 'none';
+  if (tab==='kso') renderKSO();
+}
+
+function parseKSO(text) {
+  const lines = text.trim().split('\n');
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g,''));
+    if (!cols[1]) continue;
+    rows.push({
+      no: cols[0]||'',
+      magazin: cols[1]||'',
+      mesyac: cols[2]||'',
+      errCount: parseFloat(cols[3])||0,
+      errSum: parseFloat((cols[4]||'0').replace(/\s/g,''))||0,
+      krazhCount: parseFloat(cols[5])||0,
+      krazhSum: parseFloat((cols[6]||'0').replace(/\s/g,''))||0,
+    });
+  }
+  return rows;
+}
+
+function renderKSO() {
+  const data = KSO_DATA;
+  if (!data.length) {
+    document.getElementById('kso-table').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">Ma\'lumot yo\'q</td></tr>';
+    return;
+  }
+
+  const totalErrCount = data.reduce((s,r)=>s+r.errCount,0);
+  const totalErrSum = data.reduce((s,r)=>s+r.errSum,0);
+  const totalKrazhCount = data.reduce((s,r)=>s+r.krazhCount,0);
+  const totalKrazhSum = data.reduce((s,r)=>s+r.krazhSum,0);
+
+  document.getElementById('kso-err-count').textContent = totalErrCount.toLocaleString('ru');
+  document.getElementById('kso-err-count-sub').textContent = data.length + ' та магазин';
+  document.getElementById('kso-err-sum').textContent = fmtShort(totalErrSum);
+  document.getElementById('kso-err-sum-sub').textContent = fmtFull(totalErrSum);
+  document.getElementById('kso-krazh-count').textContent = totalKrazhCount.toLocaleString('ru');
+  document.getElementById('kso-krazh-count-sub').textContent = data.length + ' та магазин';
+  document.getElementById('kso-krazh-sum').textContent = fmtShort(totalKrazhSum);
+  document.getElementById('kso-krazh-sum-sub').textContent = fmtFull(totalKrazhSum);
+
+  // Error bars
+  const errSorted = [...data].sort((a,b)=>b.errCount-a.errCount).slice(0,10);
+  const errMax = errSorted[0]?.errCount||1;
+  document.getElementById('kso-err-bars').innerHTML = errSorted.map(r=>`
+    <div><div class="bar-item-top"><span class="bar-name">${r.magazin}</span><span class="bar-val">${r.errCount} та</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${(r.errCount/errMax*100).toFixed(1)}%"></div></div></div>`).join('') || '<div class="no-data">Нет данных</div>';
+
+  // Krazh bars
+  const krazhSorted = [...data].sort((a,b)=>b.krazhCount-a.krazhCount).slice(0,10);
+  const krazhMax = krazhSorted[0]?.krazhCount||1;
+  document.getElementById('kso-krazh-bars').innerHTML = krazhSorted.map(r=>`
+    <div><div class="bar-item-top"><span class="bar-name">${r.magazin}</span><span class="bar-val">${r.krazhCount} та</span></div>
+    <div class="bar-track"><div class="bar-fill green" style="width:${(r.krazhCount/krazhMax*100).toFixed(1)}%"></div></div></div>`).join('') || '<div class="no-data">Нет данных</div>';
+
+  // Table
+  document.getElementById('kso-table').innerHTML = data.map((r,i)=>`
+    <tr>
+      <td><span class="rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${r.no||i+1}</span></td>
+      <td style="font-weight:600;color:var(--text)">${r.magazin}</td>
+      <td style="color:var(--muted)">${r.mesyac}</td>
+      <td style="color:#e30613;font-weight:600">${r.errCount}</td>
+      <td style="color:#e30613">${r.errSum>0?fmtFull(r.errSum):'—'}</td>
+      <td style="color:#ffd100;font-weight:600">${r.krazhCount}</td>
+      <td style="color:#b38a00">${r.krazhSum>0?fmtFull(r.krazhSum):'—'}</td>
+    </tr>`).join('');
+}
+
+async function loadData() {
+  try {
+    const [res1, res2] = await Promise.all([fetch(CSV_URL), fetch(KSO_URL)]);
+    const [text1, text2] = await Promise.all([res1.text(), res2.text()]);
+    ALL_DATA = parseCSV(text1);
+    KSO_DATA = parseKSO(text2);
+    lang = 'ru';
+    applyLang();
+    buildSidebar();
+    render();
+    document.getElementById('loading').style.display = 'none';
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `
+      <div style="color:#e30613;font-size:14px">${t('errLoad')}</div>
+      <div style="color:#888;font-size:11px;margin-top:8px">${t('errNet')}</div>`;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
