@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#E30613">
+<title>Система контроля кассиров — Korzinka</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   1. DESIGN TOKENS — light + dark theme
+   ============================================================ */
+:root {
+  /* Brand (unchanged — Korzinka identity) */
+  --red: #E30613;
+  --red-10: rgba(227,6,19,0.10);
+  --red-15: rgba(227,6,19,0.15);
+  --red-25: rgba(227,6,19,0.25);
+  --red-40: rgba(227,6,19,0.40);
+  --yellow: #FFD200;
+  --yellow-light: rgba(255,210,0,0.15);
+
+  /* Neutral surfaces — soft enterprise BI palette */
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-2: #F1F5F9;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Typography */
+  --text: #0F172A;
+  --sub: #475569;
+  --muted: #64748B;
+  --faint: #94A3B8;
+
+  /* Semantic / risk */
+  --success: #16A34A;
+  --success-bg: rgba(22,163,74,0.10);
+  --warning: #D97706;
+  --warning-bg: rgba(217,119,6,0.12);
+  --orange: #EA580C;
+  --orange-bg: rgba(234,88,12,0.12);
+  --danger: var(--red);
+  --danger-bg: var(--red-10);
+  --info: #2563EB;
+  --info-bg: rgba(37,99,235,0.10);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+  --shadow: 0 4px 6px -1px rgba(15,23,42,0.06), 0 2px 4px -2px rgba(15,23,42,0.05);
+  --shadow-hover: 0 12px 24px -8px rgba(15,23,42,0.14), 0 4px 10px -4px rgba(15,23,42,0.08);
+  --shadow-modal: 0 24px 60px -12px rgba(15,23,42,0.35);
+
+  /* Shape / spacing (8pt system) */
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html[data-theme="dark"] {
+  --bg: #0B1220;
+  --surface: #121A2C;
+  --surface-2: #17233A;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+
+  --text: #EEF2FA;
+  --sub: #B6C0D3;
+  --muted: #8896AD;
+  --faint: #64708A;
+
+  --red-10: rgba(227,6,19,0.16);
+  --red-15: rgba(227,6,19,0.22);
+  --success-bg: rgba(22,163,74,0.18);
+  --warning-bg: rgba(217,119,6,0.20);
+  --orange-bg: rgba(234,88,12,0.20);
+  --danger-bg: rgba(227,6,19,0.20);
+  --info-bg: rgba(37,99,235,0.18);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 4px 10px -2px rgba(0,0,0,0.35), 0 2px 6px -2px rgba(0,0,0,0.3);
+  --shadow-hover: 0 16px 32px -10px rgba(0,0,0,0.5);
+  --shadow-modal: 0 24px 60px -12px rgba(0,0,0,0.6);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); font-family:'Inter',sans-serif; color:var(--text); min-height:100vh; display:flex; -webkit-font-smoothing:antialiased; transition:background 0.25s var(--ease), color 0.25s var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }
+}
+
+.skip-link { position:absolute; left:-9999px; top:0; background:var(--red); color:#fff; padding:10px 16px; border-radius:0 0 8px 0; z-index:99999; font-size:13px; font-weight:700; }
+.skip-link:focus { left:0; }
+
+:focus-visible { outline:2px solid var(--red); outline-offset:2px; border-radius:4px; }
+
+/* ============================================================
+   2. LOADING
+   ============================================================ */
+#loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; gap:18px; transition:opacity 0.35s var(--ease); }
+#loading.fade-out { opacity:0; pointer-events:none; }
+#loading.instant { display:none !important; }
+.load-logo { width:130px; opacity:0.95; }
+.load-bar { width:220px; height:4px; border-radius:4px; background:var(--surface-2); overflow:hidden; }
+.load-bar-fill { height:100%; width:40%; background:linear-gradient(90deg, var(--red), var(--yellow)); border-radius:4px; animation:loadSlide 1.1s ease-in-out infinite; }
+@keyframes loadSlide { 0%{transform:translateX(-100%);} 100%{transform:translateX(340%);} }
+#loading h2 { font-size:13px; font-weight:800; color:var(--text); letter-spacing:2px; }
+#loading p { font-size:12px; color:var(--muted); }
+#loading .err-box { display:none; flex-direction:column; align-items:center; gap:10px; }
+#loading.has-error .load-logo, #loading.has-error .load-bar, #loading.has-error > p { display:none; }
+#loading.has-error .err-box { display:flex; }
+.retry-btn { padding:9px 20px; background:var(--red); color:#fff; border:none; border-radius:var(--radius-sm); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:transform 0.15s var(--ease), box-shadow 0.15s; }
+.retry-btn:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(227,6,19,0.3); }
+
+.skel { background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size:400% 100%; animation:skelShine 1.4s ease infinite; border-radius:8px; }
+@keyframes skelShine { 0%{background-position:100% 50%;} 100%{background-position:0 50%;} }
+
+/* Offline / stale-data banner */
+.offline-banner { display:none; align-items:center; gap:10px; background:var(--warning-bg); color:var(--warning); border:1px solid rgba(217,119,6,0.3); border-radius:var(--radius-sm); padding:9px 14px; font-size:12px; font-weight:600; margin:0 0 4px; }
+.offline-banner.show { display:flex; }
+.offline-banner button { margin-left:auto; background:none; border:none; color:inherit; font-weight:700; cursor:pointer; font-family:inherit; font-size:12px; text-decoration:underline; }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px) scale(0.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes glassPop { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+
+/* ============================================================
+   3. SIDEBAR
+   ============================================================ */
+.sidebar { width:248px; min-width:248px; background:var(--red); display:flex; flex-direction:column; height:100vh; position:sticky; top:0; }
+.logo-area { padding:20px 18px 16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.brand-title { font-size:12px; font-weight:800; color:#fff; letter-spacing:1.5px; text-transform:uppercase; line-height:1.4; margin-top:10px; }
+.brand-sub { font-size:10px; color:rgba(255,255,255,0.6); margin-top:3px; }
+
+.lang-bar { display:flex; gap:4px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.lang-btn { flex:1; padding:6px 0; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); border-radius:8px; color:rgba(255,255,255,0.75); font-size:11px; font-weight:700; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.15s; }
+.lang-btn:hover { color:#fff; background:rgba(255,255,255,0.2); }
+.lang-btn.active { background:var(--yellow); border-color:var(--yellow); color:#2B2B2B; }
+
+.nav-jump { display:flex; flex-direction:column; gap:2px; padding:10px 10px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.nav-jump-btn { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:10px; border:none; background:transparent; color:rgba(255,255,255,0.78); font-size:12px; font-weight:600; font-family:'Inter',sans-serif; cursor:pointer; text-align:left; transition:all 0.15s; }
+.nav-jump-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+.nav-jump-btn.active { background:rgba(255,255,255,0.16); color:#fff; }
+.nav-jump-btn .ic { font-size:14px; width:16px; text-align:center; }
+
+.filter-area { padding:14px 12px 8px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.filter-label { font-size:9px; font-weight:700; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; }
+.month-select { width:100%; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:10px; color:#fff; font-family:'Inter',sans-serif; font-size:12px; font-weight:500; padding:9px 12px; cursor:pointer; outline:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='white'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
+.month-select option { background:#c00010; color:#fff; }
+.month-select:focus { border-color:var(--yellow); }
+
+.stores-label { padding:14px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.55); text-transform:uppercase; letter-spacing:1.5px; }
+.store-list { flex:1; overflow-y:auto; padding:4px 8px 12px; }
+.store-list::-webkit-scrollbar { width:3px; }
+.store-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:2px; }
+.store-btn { display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 10px; border-radius:10px; border:1px solid transparent; background:transparent; color:rgba(255,255,255,0.75); font-size:12px; font-weight:500; font-family:'Inter',sans-serif; cursor:pointer; margin-bottom:2px; text-align:left; transition:all 0.15s; }
+.store-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+.store-btn.active { background:var(--yellow); border-color:var(--yellow); color:#2B2B2B; font-weight:700; }
+.store-count { font-size:10px; font-weight:700; background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); padding:2px 7px; border-radius:20px; }
+.store-btn.active .store-count { background:rgba(0,0,0,0.12); color:#2B2B2B; }
+.signature { padding:12px 16px; border-top:1px solid rgba(255,255,255,0.15); font-size:9px; font-weight:700; color:rgba(255,255,255,0.45); text-align:center; letter-spacing:2px; }
+.signature span { color:var(--yellow); }
+
+/* ============================================================
+   4. MAIN / HEADER
+   ============================================================ */
+.main { flex:1; overflow-y:auto; height:100vh; }
+.main::-webkit-scrollbar { width:4px; }
+.main::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+.header { background:rgba(255,255,255,0.86); -webkit-backdrop-filter:blur(18px) saturate(180%); backdrop-filter:blur(18px) saturate(180%); border-bottom:1px solid var(--border); padding:14px 28px; position:sticky; top:0; z-index:100; box-shadow:0 1px 8px rgba(15,23,42,0.04); }
+html[data-theme="dark"] .header { background:rgba(18,26,44,0.82); }
+.header-top { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.header-left { display:flex; align-items:center; gap:12px; min-width:0; }
+.header-left h1 { font-size:18px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-left p { font-size:11px; color:var(--muted); margin-top:3px; }
+.header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+
+.gsearch-wrap { position:relative; }
+.gsearch { width:200px; padding:8px 12px 8px 32px; border:1px solid var(--border); border-radius:var(--radius-sm); font-family:'Inter',sans-serif; font-size:12px; color:var(--text); background:var(--surface-2); outline:none; transition:all 0.15s; }
+.gsearch:focus { border-color:var(--red); background:var(--surface); width:240px; }
+.gsearch-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none; }
+
+.icon-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; font-size:15px; color:var(--sub); transition:all 0.15s var(--ease); position:relative; flex-shrink:0; }
+.icon-btn:hover { border-color:var(--red); color:var(--red); transform:translateY(-1px); }
+.icon-btn:active { transform:scale(0.94); }
+.icon-btn .dot { position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%; background:var(--red); border:1.5px solid var(--surface); }
+
+.tab-switcher { display:flex; gap:3px; background:var(--surface-2); border-radius:12px; padding:3px; border:1px solid var(--border); }
+.tab-btn { padding:7px 16px; border-radius:9px; border:none; background:transparent; color:var(--sub); font-size:12px; font-weight:600; font-family:'Inter',sans-serif; cursor:pointer; transition:all 0.2s var(--ease); white-space:nowrap; }
+.tab-btn.active { background:var(--red); color:#fff; box-shadow:0 2px 8px rgba(227,6,19,0.28); }
+
+.export-menu-wrap { position:relative; }
+.export-btn { padding:8px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:11px; font-weight:600; color:var(--sub); cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.15s; display:flex; align-items:center; gap:6px; }
+.export-btn:hover { border-color:var(--red); color:var(--red); }
+.export-dd { display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow-hover); min-width:170px; padding:6px; z-index:200; }
+.export-dd.show { display:block; animation:glassPop 0.18s var(--ease); }
+.export-dd button { width:100%; text-align:left; padding:9px 10px; background:none; border:none; font-family:inherit; font-size:12px; font-weight:600; color:var(--text); border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.export-dd button:hover { background:var(--surface-2); color:var(--red); }
+
+.settings-pop { display:none; position:absolute; right:0; top:calc(100% + 6px); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow-hover); width:250px; padding:14px; z-index:200; }
+.settings-pop.show { display:block; animation:glassPop 0.18s var(--ease); }
+.settings-row { display:flex; align-items:center; justify-content:space-between; padding:8px 0; }
+.settings-row + .settings-row { border-top:1px solid var(--border); }
+.settings-label { font-size:12px; font-weight:600; color:var(--text); }
+.settings-sub { font-size:10px; color:var(--muted); margin-top:1px; }
+.switch { position:relative; width:38px; height:22px; background:var(--border-strong); border-radius:20px; border:none; cursor:pointer; flex-shrink:0; transition:background 0.2s; }
+.switch.on { background:var(--red); }
+.switch::after { content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; background:#fff; border-radius:50%; transition:transform 0.2s var(--ease); box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+.switch.on::after { transform:translateX(16px); }
+.mini-btn { padding:6px 10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; font-size:11px; font-weight:600; color:var(--sub); cursor:pointer; font-family:inherit; }
+.mini-btn:hover { border-color:var(--red); color:var(--red); }
+
+/* ============================================================
+   5. CONTENT / KPI
+   ============================================================ */
+.content { padding:24px 28px; display:flex; flex-direction:column; gap:20px; animation:fadeIn 0.4s ease; }
+.content.tab-swapping { animation:tabSwap 0.42s var(--ease); transform-origin:center top; }
+@keyframes tabSwap { from { opacity:0; transform:translateY(12px) scale(0.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+.section-title { font-size:14px; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px; margin-top:6px; }
+.section-title .n { width:22px; height:22px; border-radius:7px; background:var(--red-10); color:var(--red); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+.section-sub { font-size:11px; color:var(--muted); margin-top:-12px; margin-bottom:2px; }
+
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.kpi-grid.secondary { grid-template-columns:repeat(4,1fr); }
+.kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 20px 18px; position:relative; overflow:hidden; box-shadow:var(--shadow); transition:transform 0.3s var(--ease), box-shadow 0.3s var(--ease); animation:glassPop 0.5s var(--spring) backwards; }
+.kpi:nth-child(1){animation-delay:.02s} .kpi:nth-child(2){animation-delay:.07s} .kpi:nth-child(3){animation-delay:.12s} .kpi:nth-child(4){animation-delay:.17s}
+.kpi:hover { transform:translateY(-3px); box-shadow:var(--shadow-hover); }
+.kpi-bar { height:3px; width:36px; border-radius:2px; background:var(--red); margin-bottom:14px; }
+.kpi-bar.y { background:var(--yellow); }
+.kpi-bar.g { background:var(--success); }
+.kpi-bar.d { background:var(--muted); }
+.kpi-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:8px; }
+.kpi-value { font-size:32px; font-weight:800; color:var(--text); line-height:1; margin-bottom:6px; letter-spacing:-0.5px; }
+.kpi-value.r { color:var(--red); }
+.kpi-sub { font-size:11px; color:var(--sub); }
+.kpi-icon { font-size:22px; opacity:0.55; flex-shrink:0; }
+.trend-badge { display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:700; padding:3px 7px; border-radius:20px; margin-top:8px; }
+.trend-badge.up-bad { background:var(--danger-bg); color:var(--red); }
+.trend-badge.down-good { background:var(--success-bg); color:var(--success); }
+.trend-badge.flat { background:var(--surface-2); color:var(--muted); }
+
+.kpi-mini-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.kpi-mini { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:13px 15px; box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:10px; }
+.kpi-mini .mi { font-size:16px; width:30px; height:30px; border-radius:8px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-mini .mv { font-size:16px; font-weight:800; color:var(--text); line-height:1.1; }
+.kpi-mini .ml { font-size:9.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-top:2px; }
+
+/* GRID */
+.grid-2 { display:grid; grid-template-columns:3fr 2fr; gap:16px; }
+.grid-half { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+/* CARD */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); }
+.card-title { font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px; justify-content:space-between; }
+.card-title .ctl { display:flex; align-items:center; gap:8px; }
+.card-title .chint { font-size:9.5px; font-weight:600; color:var(--faint); text-transform:none; letter-spacing:0; }
+.cdot { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+.cdot.y { background:var(--yellow); }
+.cdot.g { background:var(--success); }
+
+/* BARS */
+.bar-list { display:flex; flex-direction:column; gap:11px; }
+.bar-row { display:flex; align-items:center; gap:10px; cursor:pointer; border-radius:8px; padding:3px; margin:-3px; transition:background 0.15s; }
+.bar-row:hover { background:var(--surface-2); }
+.bar-rank { width:22px; height:22px; border-radius:6px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:var(--sub); flex-shrink:0; }
+.bar-rank.r1 { background:var(--red-10); color:var(--red); }
+.bar-rank.r2 { background:var(--yellow-light); color:#a07800; }
+.bar-rank.r3 { background:var(--surface-2); color:var(--sub); }
+.bar-info { flex:1; min-width:0; }
+.bar-name { font-size:12px; font-weight:600; color:var(--text); margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { height:5px; background:var(--surface-2); border-radius:3px; overflow:hidden; }
+.bar-fill { height:100%; background:var(--red); border-radius:3px; transition:width 0.6s ease; }
+.bar-fill.y { background:var(--yellow); }
+.bar-val { font-size:11px; font-weight:700; color:var(--sub); white-space:nowrap; flex-shrink:0; }
+.risk-pill { font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+.risk-pill.low { background:var(--success-bg); color:var(--success); }
+.risk-pill.medium { background:var(--warning-bg); color:var(--warning); }
+.risk-pill.high { background:var(--orange-bg); color:var(--orange); }
+.risk-pill.critical { background:var(--danger-bg); color:var(--red); }
+
+/* VIOL HORIZONTAL BARS */
+.viol-list { display:flex; flex-direction:column; gap:10px; }
+.viol-top { display:flex; justify-content:space-between; margin-bottom:5px; }
+.viol-name { font-size:11px; color:var(--text); font-weight:500; }
+.viol-vals { font-size:11px; color:var(--sub); font-weight:600; }
+.viol-track { height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden; }
+.viol-fill { height:100%; border-radius:3px; transition:width 0.6s ease; }
+
+/* SEARCH */
+.search-wrap { position:relative; margin-bottom:14px; }
+.search-input { width:100%; padding:9px 14px 9px 36px; border:1px solid var(--border); border-radius:10px; font-family:'Inter',sans-serif; font-size:12px; color:var(--text); background:var(--surface-2); outline:none; transition:border-color 0.15s; }
+.search-input:focus { border-color:var(--red); background:var(--surface); }
+.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--muted); }
+
+/* FILTER CHIP BAR */
+.filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow-sm); }
+.filter-field { display:flex; flex-direction:column; gap:5px; min-width:130px; }
+.filter-field label { font-size:9.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.filter-field select, .filter-field input[type=date] { padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:12px; color:var(--text); background:var(--surface-2); outline:none; cursor:pointer; }
+.filter-field select:focus, .filter-field input[type=date]:focus { border-color:var(--red); }
+.filter-reset { padding:8px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; font-size:11.5px; font-weight:700; color:var(--sub); cursor:pointer; font-family:inherit; }
+.filter-reset:hover { border-color:var(--red); color:var(--red); }
+.filter-count { margin-left:auto; font-size:11px; color:var(--muted); font-weight:600; align-self:center; }
+
+/* TABLE */
+.tbl-wrap { overflow-x:auto; max-height:420px; overflow-y:auto; }
+.tbl-wrap::-webkit-scrollbar { height:4px; width:4px; }
+.tbl-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.tbl thead { position:sticky; top:0; z-index:5; }
+.tbl th { text-align:left; font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; padding:0 12px 10px; border-bottom:2px solid var(--border); background:var(--surface); cursor:pointer; white-space:nowrap; }
+.tbl th:hover { color:var(--red); }
+.tbl td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--sub); vertical-align:middle; }
+.tbl tr:last-child td { border-bottom:none; }
+.tbl tr:hover td { background:var(--surface-2); }
+.sum-high { color:var(--red) !important; font-weight:700; }
+.sum-mid { color:var(--warning) !important; font-weight:600; }
+.badge { display:inline-block; background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-size:10px; color:var(--sub); font-weight:600; }
+.name-link { color:var(--text); font-weight:600; cursor:pointer; border:none; background:none; font-family:inherit; font-size:inherit; padding:0; text-align:left; }
+.name-link:hover { color:var(--red); text-decoration:underline; }
+
+.pagination { display:flex; align-items:center; justify-content:space-between; margin-top:14px; font-size:11px; color:var(--sub); }
+.page-btns { display:flex; gap:4px; }
+.page-btn { padding:5px 10px; border:1px solid var(--border); border-radius:7px; background:var(--surface); font-size:11px; cursor:pointer; font-family:'Inter',sans-serif; color:var(--sub); transition:all 0.15s; }
+.page-btn.active { background:var(--red); color:#fff; border-color:var(--red); }
+.page-btn:hover:not(.active) { border-color:var(--red); color:var(--red); }
+.no-data { display:flex; align-items:center; justify-content:center; height:100px; color:var(--muted); font-size:13px; flex-direction:column; gap:6px; }
+
+/* LEADERBOARD ROW (risk) */
+.lb-row { display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:9px; cursor:pointer; transition:background 0.15s; }
+.lb-row:hover { background:var(--surface-2); }
+.lb-avatar { width:30px; height:30px; border-radius:9px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--sub); flex-shrink:0; }
+.lb-info { flex:1; min-width:0; }
+.lb-name { font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lb-sub { font-size:10.5px; color:var(--muted); margin-top:1px; }
+.lb-score { text-align:right; flex-shrink:0; }
+.lb-score .num { font-size:15px; font-weight:800; }
+.lb-score .lbl { font-size:9px; color:var(--muted); font-weight:700; text-transform:uppercase; }
+
+/* HEATMAP */
+.heatmap-wrap { overflow-x:auto; }
+.heatmap { display:grid; grid-template-columns:34px repeat(24, minmax(20px,1fr)); gap:3px; min-width:640px; }
+.hm-cell { aspect-ratio:1; border-radius:4px; background:var(--surface-2); }
+.hm-hourlabel { font-size:8px; color:var(--faint); text-align:center; align-self:end; }
+.hm-daylabel { font-size:10px; color:var(--sub); font-weight:700; display:flex; align-items:center; }
+.heatmap-legend { display:flex; align-items:center; gap:6px; margin-top:12px; font-size:10px; color:var(--muted); }
+.hm-legend-cell { width:14px; height:14px; border-radius:3px; }
+.heatmap-note { font-size:11px; color:var(--muted); background:var(--surface-2); border-radius:8px; padding:8px 12px; margin-top:10px; }
+
+/* SHIFT CARDS */
+.shift-card { background:var(--surface-2); border-radius:var(--radius-sm); padding:16px; text-align:center; }
+.shift-icon { font-size:22px; margin-bottom:6px; }
+.shift-name { font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+.shift-stat { display:flex; justify-content:space-between; font-size:11.5px; padding:4px 0; color:var(--sub); }
+.shift-stat b { color:var(--text); font-weight:800; }
+
+/* BRANCH TABLE trend arrow */
+.trend-arrow { font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:2px; }
+.trend-arrow.up { color:var(--red); }
+.trend-arrow.down { color:var(--success); }
+.trend-arrow.flat { color:var(--muted); }
+
+/* HAMBURGER (mobile only) */
+.hamburger { display:none; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; width:40px; height:40px; align-items:center; justify-content:center; font-size:20px; cursor:pointer; color:var(--text); flex-shrink:0; padding:0; font-family:inherit; }
+.hamburger:active { background:var(--border); }
+.backdrop { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:998; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); animation:fadeBd 0.2s ease; }
+.backdrop.show { display:block; }
+@keyframes fadeBd { from { opacity:0; } to { opacity:1; } }
+
+/* ============================================================
+   6. MODAL (drill-down)
+   ============================================================ */
+.modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.55); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.modal-backdrop[hidden] { display:none; }
+.modal { background:var(--surface); border-radius:20px; width:100%; max-width:560px; max-height:88vh; overflow-y:auto; box-shadow:var(--shadow-modal); animation:modalIn 0.28s var(--spring); }
+@keyframes modalIn { from { opacity:0; transform:scale(0.94) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.modal-close { position:sticky; top:12px; float:right; margin-right:12px; width:32px; height:32px; border-radius:50%; border:none; background:var(--surface-2); color:var(--sub); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:5; }
+.modal-close:hover { background:var(--danger-bg); color:var(--red); }
+.modal-body { padding:24px 24px 26px; }
+.modal-head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+.modal-avatar { width:54px; height:54px; border-radius:16px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:var(--text); flex-shrink:0; }
+.modal-title { font-size:17px; font-weight:800; color:var(--text); }
+.modal-subtitle { font-size:12px; color:var(--muted); margin-top:2px; }
+.modal-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px; }
+.modal-stat { background:var(--surface-2); border-radius:12px; padding:12px; text-align:center; }
+.modal-stat .v { font-size:18px; font-weight:800; color:var(--text); }
+.modal-stat .l { font-size:9.5px; color:var(--muted); font-weight:700; text-transform:uppercase; margin-top:2px; }
+.modal-section-title { font-size:10.5px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px; }
+.modal-reco { background:var(--info-bg); color:var(--info); border-radius:12px; padding:12px 14px; font-size:12px; line-height:1.5; font-weight:600; }
+.modal-reco.low { background:var(--success-bg); color:var(--success); }
+.modal-reco.medium { background:var(--warning-bg); color:var(--warning); }
+.modal-reco.high { background:var(--orange-bg); color:var(--orange); }
+.modal-reco.critical { background:var(--danger-bg); color:var(--red); }
+
+/* ===== MOBILE ===== */
+@media (max-width: 820px) {
+  body { flex-direction:column; }
+  .sidebar { position:fixed; top:0; left:0; width:84%; max-width:320px; height:100vh; z-index:999; transform:translateX(-100%); transition:transform 0.32s var(--ease); box-shadow:6px 0 24px rgba(0,0,0,0.25); }
+  .sidebar.open { transform:translateX(0); }
+  .hamburger { display:flex; }
+  .main { width:100%; height:auto; overflow:visible; }
+  .header { padding:12px 14px; padding-top:max(12px, env(safe-area-inset-top)); padding-left:max(14px, env(safe-area-inset-left)); padding-right:max(14px, env(safe-area-inset-right)); }
+  .header-top { flex-wrap:wrap; gap:10px; }
+  .header-left { min-width:0; flex:1 1 auto; }
+  .header-left h1 { font-size:15px; }
+  .header-left p { font-size:10px; }
+  .header-right { flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+  .header-right .tab-switcher { display:none; }
+  .gsearch { width:120px; }
+  .gsearch:focus { width:160px; }
+  .content { padding:14px; padding-left:max(14px, env(safe-area-inset-left)); padding-right:max(14px, env(safe-area-inset-right)); gap:14px; padding-bottom:calc(96px + env(safe-area-inset-bottom)) !important; }
+  .kpi-grid, .kpi-mini-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
+  .kpi { padding:16px 14px; }
+  .kpi-value { font-size:24px; }
+  .grid-2, .grid-half, .grid-3 { grid-template-columns:1fr; }
+  .card { padding:16px; }
+  .filter-bar { flex-direction:column; align-items:stretch; }
+  .filter-field { width:100%; }
+  .filter-count { margin-left:0; }
+  .tbl th, .tbl td { padding-left:8px; padding-right:8px; }
+  .tbl th { font-size:9px; }
+  .tbl td { font-size:11px; padding-top:9px; padding-bottom:9px; }
+  .pagination { flex-direction:column; gap:10px; align-items:stretch; text-align:center; }
+  .page-btns { justify-content:center; flex-wrap:wrap; }
+  .modal-stats { grid-template-columns:1fr 1fr; }
+  canvas { max-width:100% !important; height:auto !important; }
+  body.no-scroll { overflow:hidden; }
+  .heatmap { min-width:560px; }
+}
+@media (max-width: 380px) {
+  .kpi-value { font-size:21px; }
+  .content { padding:10px; gap:10px; }
+  .card { padding:12px; }
+}
+
+/* Liquid-glass floating dock (mobile tab nav) */
+.glass-dock { display:none; }
+@media (max-width: 820px) {
+  .glass-dock { display:flex; position:fixed; bottom:max(16px, calc(env(safe-area-inset-bottom) + 12px)); left:50%; transform:translateX(-50%); z-index:500; padding:5px; gap:4px; border-radius:100px; background:rgba(255,255,255,0.75); -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%); border:0.5px solid rgba(255,255,255,0.7); box-shadow:0 12px 30px rgba(0,0,0,0.18); animation:dockIn 0.5s var(--spring) 0.1s backwards; }
+  html[data-theme="dark"] .glass-dock { background:rgba(18,26,44,0.82); border-color:rgba(255,255,255,0.1); }
+  @keyframes dockIn { from { opacity:0; transform:translateX(-50%) translateY(40px) scale(0.85); } to { opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }
+  .dock-btn { display:flex; align-items:center; gap:6px; padding:10px 16px; border:none; border-radius:100px; background:transparent; color:var(--sub); font:600 12px 'Inter',sans-serif; cursor:pointer; transition:all 0.3s var(--ease); }
+  .dock-btn.active { background:var(--red); color:#fff; box-shadow:0 4px 12px rgba(227,6,19,0.4); }
+}
+
+/* Press-scale micro interaction */
+.tab-btn:active, .export-btn:active, .lang-btn:active, .store-btn:active, .hamburger:active, .page-btn:active, .icon-btn:active, .nav-jump-btn:active { transform:scale(0.96); transition:transform 0.08s ease-out; }
+
+::selection { background:var(--red-15); color:var(--text); }
+html { scroll-behavior:smooth; }
+
+/* Print stylesheet — used for "Export PDF" (browser print-to-PDF) */
+@media print {
+  body * { visibility:hidden; }
+  .sidebar, .header, .glass-dock, .modal-backdrop, .backdrop { display:none !important; }
+  #print-report, #print-report * { visibility:visible; }
+  #print-report { display:block !important; position:absolute; top:0; left:0; width:100%; padding:20px; }
+  #print-report h1 { font-size:20px; margin-bottom:4px; }
+  #print-report .pr-meta { font-size:11px; color:#555; margin-bottom:16px; }
+  #print-report table { width:100%; border-collapse:collapse; font-size:10px; }
+  #print-report th, #print-report td { border:1px solid #ccc; padding:5px 7px; text-align:left; }
+  #print-report th { background:#f3f3f3; }
+}
+#print-report { display:none; }
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Kontentga o'tish / Skip to content</a>
+
+<div id="loading">
+  <svg class="load-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 52">
+    <g fill="#E30613">
+      <rect x="2" y="2" width="19" height="5.5" rx="2.75"/>
+      <rect x="8.5" y="10" width="49" height="7" rx="3.5"/>
+      <rect x="11.5" y="19.5" width="45" height="7" rx="3.5"/>
+      <rect x="16" y="28.5" width="33.5" height="7" rx="3.5"/>
+      <ellipse cx="15" cy="44" rx="5.4" ry="4.9"/>
+      <ellipse cx="37" cy="44" rx="5.3" ry="4.9"/>
+    </g>
+    <text x="68" y="41" font-family="'Arial Black',Arial,sans-serif" font-size="37" font-weight="900" fill="#E30613" letter-spacing="-1.5">korzinka</text>
+  </svg>
+  <div class="load-bar"><div class="load-bar-fill"></div></div>
+  <h2>ЗАГРУЗКА ДАННЫХ</h2>
+  <p>Получение данных из Google Sheets...</p>
+  <div class="err-box">
+    <div style="color:var(--red);font-size:15px;font-weight:800">Ошибка загрузки данных</div>
+    <div style="color:var(--muted);font-size:12px">Проверьте подключение к интернету</div>
+    <button class="retry-btn" onclick="loadData(true)">↻ Qayta urinish / Retry</button>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
+
+<div class="sidebar" id="sidebar">
+  <div class="logo-area">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 52" style="width:150px;height:auto;display:block">
+      <g fill="white">
+        <rect x="2"    y="2"    width="19"   height="5.5" rx="2.75"/>
+        <rect x="8.5"  y="10"   width="49"   height="7"   rx="3.5"/>
+        <rect x="11.5" y="19.5" width="45"   height="7"   rx="3.5"/>
+        <rect x="16"   y="28.5" width="33.5" height="7"   rx="3.5"/>
+        <ellipse cx="15" cy="44" rx="5.4" ry="4.9"/>
+        <ellipse cx="37" cy="44" rx="5.3" ry="4.9"/>
+      </g>
+      <text x="68" y="41" font-family="'Arial Black',Arial,sans-serif" font-size="37" font-weight="900" fill="white" letter-spacing="-1.5">korzinka</text>
+    </svg>
+    <div class="brand-title" id="brand-title">СИСТЕМА КОНТРОЛЯ КАССИРОВ</div>
+    <div class="brand-sub" id="brand-sub">Анализ ошибок и нарушений</div>
+  </div>
+
+  <div class="lang-bar">
+    <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+    <button class="lang-btn" onclick="setLang('uz')">UZ</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+  </div>
+
+  <nav class="nav-jump" id="nav-jump" aria-label="Section navigation">
+    <button class="nav-jump-btn active" data-jump="sec-overview" onclick="jumpTo('sec-overview')"><span class="ic">📊</span><span id="nav-overview">Umumiy holat</span></button>
+    <button class="nav-jump-btn" data-jump="sec-analytics" onclick="jumpTo('sec-analytics')"><span class="ic">🕒</span><span id="nav-analytics">Vaqt tahlili</span></button>
+    <button class="nav-jump-btn" data-jump="sec-cashiers" onclick="jumpTo('sec-cashiers')"><span class="ic">🧍</span><span id="nav-cashiers">Kassirlar</span></button>
+    <button class="nav-jump-btn" data-jump="sec-branches" onclick="jumpTo('sec-branches')"><span class="ic">🏬</span><span id="nav-branches">Filiallar</span></button>
+    <button class="nav-jump-btn" data-jump="sec-table" onclick="jumpTo('sec-table')"><span class="ic">📋</span><span id="nav-table">Jadval</span></button>
+  </nav>
+
+  <div class="filter-area">
+    <div class="filter-label" id="lbl-month">Период анализа</div>
+    <select class="month-select" id="month-select"><option value="ALL">Все месяцы</option></select>
+  </div>
+
+  <div class="stores-label" id="lbl-stores">Филиалы</div>
+  <div class="store-list" id="store-list"></div>
+  <div class="signature">BY <span>MIRORIF</span></div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <div class="header-top">
+      <div class="header-left">
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+        <div>
+          <h1 id="header-title">Все магазины</h1>
+          <p id="header-sub">Загрузка...</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="gsearch-wrap">
+          <span class="gsearch-icon">🔍</span>
+          <input class="gsearch" id="global-search" placeholder="Qidirish..." oninput="onGlobalSearch()" aria-label="Global search">
+        </div>
+        <div class="tab-switcher" role="tablist">
+          <button class="tab-btn active" onclick="setTab('kassir')" id="tab-kassir" data-tab="kassir" role="tab" aria-selected="true">🧾 Кассиры</button>
+          <button class="tab-btn" onclick="setTab('kso')" id="tab-kso" data-tab="kso" role="tab" aria-selected="false">🏪 КСО</button>
+        </div>
+        <button class="icon-btn" id="theme-toggle-btn" onclick="ThemeManager.toggle()" aria-label="Toggle dark mode" aria-pressed="false">🌙</button>
+        <div class="export-menu-wrap">
+          <button class="export-btn" onclick="toggleExportMenu()">⬇ <span id="export-lbl">Экспорт</span></button>
+          <div class="export-dd" id="export-dd">
+            <button onclick="exportCSV();toggleExportMenu()">📄 CSV</button>
+            <button onclick="exportExcel();toggleExportMenu()">📊 Excel (.xlsx)</button>
+            <button onclick="exportPDF();toggleExportMenu()">🖨️ PDF (Print)</button>
+          </div>
+        </div>
+        <div class="export-menu-wrap">
+          <button class="icon-btn" onclick="toggleSettings()" aria-label="Settings">⚙️</button>
+          <div class="settings-pop" id="settings-pop">
+            <div class="settings-row">
+              <div><div class="settings-label" id="set-lbl-theme">Qorong'i rejim</div><div class="settings-sub" id="set-sub-theme">Dark mode</div></div>
+              <button class="switch" id="theme-switch" onclick="ThemeManager.toggle()" aria-label="Toggle theme"></button>
+            </div>
+            <div class="settings-row">
+              <div><div class="settings-label" id="set-lbl-update">So'nggi yangilanish</div><div class="settings-sub" id="last-updated">—</div></div>
+              <button class="mini-btn" id="refresh-btn" onclick="loadData(true)">↻</button>
+            </div>
+            <div class="settings-row">
+              <div><div class="settings-label" id="set-lbl-cache">Kesh</div><div class="settings-sub" id="set-sub-cache">localStorage</div></div>
+              <button class="mini-btn" onclick="clearCacheAndReload()" id="set-lbl-clear">Tozalash</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-content">
+  <div class="content" id="kassir-content">
+    <div class="offline-banner" id="offline-banner">
+      <span>⚠️ <span id="offline-msg">Yangilanmadi — keshdagi ma'lumotlar ko'rsatilmoqda</span></span>
+      <button onclick="loadData(true)">↻ Qayta urinish</button>
+    </div>
+
+    <div id="sec-overview">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-bar"></div>
+        <div class="kpi-top"><div class="kpi-label" id="kpi-lbl-1">Общее количество ошибок</div><div class="kpi-icon">📉</div></div>
+        <div class="kpi-value r" id="kpi-count">—</div>
+        <div class="kpi-sub" id="kpi-count-sub">—</div>
+        <div id="kpi-count-trend"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-bar y"></div>
+        <div class="kpi-top"><div class="kpi-label" id="kpi-lbl-2">Сумма потерь</div><div class="kpi-icon">💰</div></div>
+        <div class="kpi-value" id="kpi-sum">—</div>
+        <div class="kpi-sub" id="kpi-sum-sub">—</div>
+        <div id="kpi-sum-trend"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-bar g"></div>
+        <div class="kpi-top"><div class="kpi-label" id="kpi-lbl-3">Среднее за месяц</div><div class="kpi-icon">📊</div></div>
+        <div class="kpi-value" id="kpi-avg">—</div>
+        <div class="kpi-sub" id="kpi-avg-sub">ошибок в месяц</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-bar d"></div>
+        <div class="kpi-top"><div class="kpi-label" id="kpi-lbl-4">Лидер по ошибкам</div><div class="kpi-icon">👤</div></div>
+        <div class="kpi-value" style="font-size:19px;padding-top:6px" id="kpi-top">—</div>
+        <div class="kpi-sub" id="kpi-top-sub">—</div>
+      </div>
+    </div>
+
+    <div class="kpi-mini-grid">
+      <div class="kpi-mini"><div class="mi">🧍</div><div><div class="mv" id="kpi-mini-cashiers">—</div><div class="ml" id="kpi-mini-cashiers-lbl">Kassirlar</div></div></div>
+      <div class="kpi-mini"><div class="mi">🏬</div><div><div class="mv" id="kpi-mini-branches">—</div><div class="ml" id="kpi-mini-branches-lbl">Filiallar</div></div></div>
+      <div class="kpi-mini"><div class="mi">🛡️</div><div><div class="mv" id="kpi-mini-risk">—</div><div class="ml" id="kpi-mini-risk-lbl">O'rtacha xavf</div></div></div>
+      <div class="kpi-mini"><div class="mi">🕓</div><div><div class="mv" id="kpi-mini-updated" style="font-size:12px">—</div><div class="ml" id="kpi-mini-updated-lbl">Yangilangan</div></div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-field"><label id="lbl-filter-type">Xatolik turi</label><select id="filter-type" onchange="onFilterChange()"></select></div>
+      <div class="filter-field"><label id="lbl-filter-risk">Xavf darajasi</label>
+        <select id="filter-risk" onchange="onFilterChange()">
+          <option value="ALL" id="risk-opt-all">Barchasi</option>
+          <option value="low" id="risk-opt-low">Past (0-30)</option>
+          <option value="medium" id="risk-opt-medium">O'rta (31-60)</option>
+          <option value="high" id="risk-opt-high">Yuqori (61-80)</option>
+          <option value="critical" id="risk-opt-critical">Kritik (81-100)</option>
+        </select>
+      </div>
+      <div class="filter-field"><label id="lbl-filter-shift">Smena</label>
+        <select id="filter-shift" onchange="onFilterChange()">
+          <option value="ALL" id="shift-opt-all">Barchasi</option>
+          <option value="morning" id="shift-opt-morning">Ertalabki</option>
+          <option value="afternoon" id="shift-opt-afternoon">Kunduzgi</option>
+          <option value="night" id="shift-opt-night">Kechki/tungi</option>
+        </select>
+      </div>
+      <div class="filter-field"><label id="lbl-filter-from">Sanadan</label><input type="date" id="filter-date-from" onchange="onFilterChange()"></div>
+      <div class="filter-field"><label id="lbl-filter-to">Sanagacha</label><input type="date" id="filter-date-to" onchange="onFilterChange()"></div>
+      <button class="filter-reset" id="filter-reset-btn" onclick="resetFilters()">✕ Tozalash</button>
+      <span class="filter-count" id="filter-count">—</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="chart-monthly-title">Ошибки по месяцам</span></span></div>
+        <div style="position:relative;height:220px"><canvas id="chart-monthly"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot y"></span><span id="chart-viol-title">Типы нарушений</span></span></div>
+        <div class="viol-list" id="viol-bars"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="sec-analytics">
+    <div class="section-title"><span class="n">1</span><span id="title-analytics">Vaqt bo'yicha tahlil</span></div>
+    <div class="section-sub" id="sub-analytics">Xatoliklar qachon ko'p sodir bo'ladi — hafta kuni, soat va smena bo'yicha</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="heatmap-title">Xatoliklar issiqlik xaritasi</span></span><span class="chint" id="heatmap-hint">Kun × Soat</span></div>
+        <div class="heatmap-wrap"><div class="heatmap" id="heatmap-grid"></div></div>
+        <div class="heatmap-legend" id="heatmap-legend"></div>
+        <div class="heatmap-note" id="heatmap-note" style="display:none"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot g"></span><span id="shift-title">Smena bo'yicha tahlil</span></span></div>
+        <div class="grid-3" id="shift-cards" style="gap:10px"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="sec-cashiers">
+    <div class="section-title"><span class="n">2</span><span id="title-cashiers">Kassirlar tahlili</span></div>
+    <div class="section-sub" id="sub-cashiers">Xavf darajasi — ro'yxatdagi xatolik yozuvlari asosida hisoblangan</div>
+    <div class="grid-half">
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="lb-risk-title">Eng yuqori xavfli kassirlar (TOP 10)</span></span></div>
+        <div id="cashier-risk-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot g"></span><span id="lb-best-title">Eng past xavfli kassirlar (TOP 10)</span></span></div>
+        <div id="cashier-best-list"></div>
+      </div>
+    </div>
+    <div class="grid-half">
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot y"></span><span id="stores-title">Рейтинг филиалов</span></span></div>
+        <div class="bar-list" id="store-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="cashiers-title">Rейтинг кассиров (ko'p xato)</span></span></div>
+        <div class="bar-list" id="cashier-bars"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="sec-branches">
+    <div class="section-title"><span class="n">3</span><span id="title-branches">Filiallar tahlili</span></div>
+    <div class="section-sub" id="sub-branches">Filial reytingi — xatolar, zarar va xavf darajasi bo'yicha</div>
+    <div class="card">
+      <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="branch-tbl-title">Filiallar reytingi</span></span></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>#</th><th id="bth-name">Филиал</th><th id="bth-err">Xatolar</th><th id="bth-sum">Zarar</th><th id="bth-risk">Xavf</th><th id="bth-trend">Trend</th>
+          </tr></thead>
+          <tbody id="branch-table"></tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+
+    <div id="sec-table">
+    <div class="card">
+      <div class="card-title"><span class="ctl"><span class="cdot"></span><span id="table-title">Детальная таблица</span></span></div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="table-search" placeholder="Поиск кассира..." oninput="filterTable()">
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>#</th>
+            <th id="th-kassir" onclick="sortTable('kassir')">Кассир ↕</th>
+            <th id="th-dokon" onclick="sortTable('dokon')">Филиал ↕</th>
+            <th id="th-sana" onclick="sortTable('sana')">Дата ↕</th>
+            <th id="th-xatolik">Нарушение</th>
+            <th id="th-summa" onclick="sortTable('summa')">Сумма ↕</th>
+            <th id="th-risk">Xavf</th>
+          </tr></thead>
+          <tbody id="detail-table"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="page-info">—</span>
+        <div class="page-btns" id="page-btns"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div class="content" id="kso-content" style="display:none">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-bar"></div><div class="kpi-label">Ошибок (количество)</div><div class="kpi-value r" id="kso-err-count">—</div><div class="kpi-sub" id="kso-err-count-sub">—</div></div>
+      <div class="kpi"><div class="kpi-bar y"></div><div class="kpi-label">Ошибок (сумма)</div><div class="kpi-value" id="kso-err-sum">—</div><div class="kpi-sub" id="kso-err-sum-sub">—</div></div>
+      <div class="kpi"><div class="kpi-bar d"></div><div class="kpi-label">Краж (количество)</div><div class="kpi-value r" id="kso-krazh-count">—</div><div class="kpi-sub" id="kso-krazh-count-sub">—</div></div>
+      <div class="kpi"><div class="kpi-bar g"></div><div class="kpi-label">Краж (сумма)</div><div class="kpi-value" id="kso-krazh-sum">—</div><div class="kpi-sub" id="kso-krazh-sum-sub">—</div></div>
+    </div>
+    <div class="grid-half">
+      <div class="card"><div class="card-title"><span class="ctl"><span class="cdot"></span>Рейтинг по ошибкам</span></div><div class="bar-list" id="kso-err-bars"></div></div>
+      <div class="card"><div class="card-title"><span class="ctl"><span class="cdot g"></span>Рейтинг по кражам</span></div><div class="bar-list" id="kso-krazh-bars"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="ctl"><span class="cdot"></span>Детальная таблица КСО</span></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>№</th><th>Магазин</th><th>Месяц</th><th>Ошибок (кол)</th><th>Ошибок (сум)</th><th>Краж (кол)</th><th>Краж (сум)</th></tr></thead>
+          <tbody id="kso-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- Floating Liquid Glass tab dock (mobile only) -->
+<div class="glass-dock" id="glass-dock">
+  <button class="dock-btn active" onclick="setTab('kassir')" data-tab="kassir">
+    <span class="dock-emoji">🧾</span><span class="dock-label">Кассиры</span>
+  </button>
+  <button class="dock-btn" onclick="setTab('kso')" data-tab="kso">
+    <span class="dock-emoji">🏪</span><span class="dock-label">КСО</span>
+  </button>
+</div>
+
+<!-- Drill-down modal -->
+<div class="modal-backdrop" id="drill-modal" hidden onclick="if(event.target===this)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-el">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Hidden print-only report used by PDF export -->
+<div id="print-report"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQdxxuq7HkF8gsC3g1N_fTaGZ3Ret6L71KF25I3ku3LmD2YwGQaIYSGIzfjS07mmcQVwnk-d9aHc9TA/pub?gid=1823342488&single=true&output=csv';
+const KSO_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRlud_Dl0ETJ9F0IKKtvruONiWX-jst_3Kd8OYP_JYPmIHBNvjvZZq3Eb0GnMJOnnyWyxwG37NRr1i/pub?gid=2109938418&single=true&output=csv';
+const PAGE_SIZE=25;
+const CACHE_KEY='korzinka_dash_cache_v1';
+const CACHE_TTL_MS=12*60*1000; // 12 minutes — "instant load" freshness window
+const THEME_KEY='korzinka_theme_v1';
+
+// Tune these to match your real shift schedule / violation taxonomy
+const SHIFTS=[
+  {key:'morning',   range:[6,14],  icon:'🌅'},
+  {key:'afternoon', range:[14,22], icon:'☀️'},
+  {key:'night',     range:[22,6],  icon:'🌙'}
+];
+const RISK_WEIGHTS={ frequency:0.40, damage:0.30, repeat:0.15, critical:0.15 };
+const CRITICAL_KEYWORDS=['краж','мошен','fraud','ogirl',"o'g'irl",'tovlamachi','xiyonat','hisob'];
+
+/* ============================================================
+   I18N
+   ============================================================ */
+const T={
+  ru:{brandTitle:'СИСТЕМА КОНТРОЛЯ КАССИРОВ',brandSub:'Анализ ошибок и нарушений',lblMonth:'Период анализа',optAll:'Все месяцы',lblStores:'Филиалы',allStores:'Все магазины',kpi1:'Общее количество ошибок',kpi2:'Сумма потерь',kpi3:'Среднее за месяц',kpi4:'Лидер по ошибкам',avgSub:'ошибок в месяц',chartMonthly:'Ошибки по месяцам',chartViol:'Типы нарушений',storesTitle:'Рейтинг филиалов',cashiersTitle:'Рейтинг кассиров (много ошибок)',tableTitle:'Детальная таблица',thKassir:'Кассир ↕',thDokon:'Филиал ↕',thSana:'Дата ↕',thXatolik:'Нарушение',thSumma:'Сумма ↕',thRisk:'Риск',errWord:'ош.',months:'мес.',stores:'магазинов',noData:'Нет данных',sum:'сум',search:'Поиск кассира...',
+   navOverview:'Общее состояние',navAnalytics:'Анализ времени',navCashiers:'Кассиры',navBranches:'Филиалы',navTable:'Таблица',
+   titleAnalytics:'Анализ по времени',subAnalytics:'Когда чаще всего происходят ошибки — по дням недели, часам и сменам',
+   heatmapTitle:'Тепловая карта ошибок',heatmapHint:'День × Час',shiftTitle:'Анализ по сменам',
+   titleCashiers:'Аналитика кассиров',subCashiers:'Риск-рейтинг рассчитан на основе зафиксированных ошибок',
+   lbRiskTitle:'Самые рискованные кассиры (ТОП-10)',lbBestTitle:'Наименее рискованные кассиры (ТОП-10)',
+   titleBranches:'Аналитика филиалов',subBranches:'Рейтинг филиалов по ошибкам, ущербу и уровню риска',
+   branchTblTitle:'Рейтинг филиалов',bthName:'Филиал',bthErr:'Ошибок',bthSum:'Ущерб',bthRisk:'Риск',bthTrend:'Тренд',
+   riskLow:'Низкий',riskMedium:'Средний',riskHigh:'Высокий',riskCritical:'Критический',
+   miniCashiers:'Кассиров',miniBranches:'Филиалов',miniRisk:'Средний риск',miniUpdated:'Обновлено',
+   filterType:'Тип нарушения',filterRisk:'Уровень риска',filterShift:'Смена',filterFrom:'С даты',filterTo:'По дату',filterReset:'Сбросить',
+   riskAll:'Все',shiftAll:'Все',shiftMorning:'Утро',shiftAfternoon:'День',shiftNight:'Вечер/ночь',
+   setTheme:'Тёмная тема',setUpdate:'Последнее обновление',setCache:'Кэш',setClear:'Очистить',
+   export:'Экспорт',
+   trendVsPrev:'к пред. периоду',recoLow:'Показатели стабильны. Продолжайте плановый мониторинг.',recoMedium:'Рекомендуется усилить наблюдение и провести краткий инструктаж.',recoHigh:'Требуется дополнительное обучение и усиленный контроль.',recoCritical:'Необходимо немедленное внимание руководства и разбор случаев.',
+   profile:'Профиль',totalErrors:'Всего ошибок',totalDamage:'Общий ущерб',riskScore:'Риск-балл',position:'Должность',branchesWorked:'Филиалы',topViolation:'Частое нарушение',recommendation:'Рекомендация',monthlyActivity:'Активность по месяцам',
+   noDateData:'Недостаточно данных о дате/времени для построения полной карты',
+   offline:'Нет соединения — показаны кэшированные данные',cacheCleared:'Кэш очищен, повторная загрузка...',
+   filterCount:'записей'
+  },
+  uz:{brandTitle:'KASSIR NAZORAT TIZIMI',brandSub:'Xatoliklar tahlili',lblMonth:'Oy tanlang',optAll:'Barcha oylar',lblStores:"Do'konlar",allStores:"Barcha do'konlar",kpi1:'Jami xatoliklar',kpi2:'Jami summa',kpi3:"O'rtacha / oy",kpi4:"Eng ko'p xato",avgSub:'xatolik oyiga',chartMonthly:"Oylar bo'yicha xatoliklar",chartViol:'Xatolik turlari',storesTitle:"Do'konlar reytingi",cashiersTitle:"Kassirlar reytingi (ko'p xato)",tableTitle:'Batafsil jadval',thKassir:'Kassir ↕',thDokon:"Do'kon ↕",thSana:'Sana ↕',thXatolik:'Xatolik',thSumma:'Summa ↕',thRisk:'Xavf',errWord:'xato',months:'oy',stores:"do'kon",noData:"Ma'lumot yo'q",sum:"so'm",search:'Kassir qidirish...',
+   navOverview:'Umumiy holat',navAnalytics:'Vaqt tahlili',navCashiers:'Kassirlar',navBranches:'Filiallar',navTable:'Jadval',
+   titleAnalytics:"Vaqt bo'yicha tahlil",subAnalytics:"Xatoliklar qachon ko'p sodir bo'ladi — hafta kuni, soat va smena bo'yicha",
+   heatmapTitle:'Xatoliklar issiqlik xaritasi',heatmapHint:'Kun × Soat',shiftTitle:'Smena bo\'yicha tahlil',
+   titleCashiers:'Kassirlar tahlili',subCashiers:'Xavf darajasi — qayd etilgan xatolik yozuvlari asosida',
+   lbRiskTitle:'Eng yuqori xavfli kassirlar (TOP-10)',lbBestTitle:'Eng past xavfli kassirlar (TOP-10)',
+   titleBranches:'Filiallar tahlili',subBranches:'Filiallar reytingi — xatolar, zarar va xavf darajasi',
+   branchTblTitle:'Filiallar reytingi',bthName:"Filial",bthErr:'Xatolar',bthSum:'Zarar',bthRisk:'Xavf',bthTrend:'Trend',
+   riskLow:'Past',riskMedium:"O'rta",riskHigh:'Yuqori',riskCritical:'Kritik',
+   miniCashiers:'Kassirlar',miniBranches:'Filiallar',miniRisk:"O'rtacha xavf",miniUpdated:'Yangilangan',
+   filterType:'Xatolik turi',filterRisk:'Xavf darajasi',filterShift:'Smena',filterFrom:'Sanadan',filterTo:'Sanagacha',filterReset:'Tozalash',
+   riskAll:'Barchasi',shiftAll:'Barchasi',shiftMorning:'Ertalabki',shiftAfternoon:'Kunduzgi',shiftNight:'Kechki/tungi',
+   setTheme:"Qorong'i rejim",setUpdate:"So'nggi yangilanish",setCache:'Kesh',setClear:'Tozalash',
+   export:'Eksport',
+   trendVsPrev:"oldingi davrga nisbatan",recoLow:"Ko'rsatkichlar barqaror. Rejalashtirilgan nazoratni davom ettiring.",recoMedium:'Kuzatuvni kuchaytirish va qisqa suhbat o\'tkazish tavsiya etiladi.',recoHigh:"Qo'shimcha treninig va kuchaytirilgan nazorat zarur.",recoCritical:"Rahbariyatning zudlik bilan e'tibori va holatni ko'rib chiqish talab etiladi.",
+   profile:'Profil',totalErrors:'Jami xatoliklar',totalDamage:'Jami zarar',riskScore:'Xavf bali',position:'Lavozim',branchesWorked:"Do'konlar",topViolation:"Ko'p uchraydigan xatolik",recommendation:'Tavsiya',monthlyActivity:"Oylar bo'yicha faollik",
+   noDateData:"To'liq xarita uchun sana/vaqt ma'lumotlari yetarli emas",
+   offline:"Ulanish yo'q — keshdagi ma'lumotlar ko'rsatilmoqda",cacheCleared:'Kesh tozalandi, qayta yuklanmoqda...',
+   filterCount:'yozuv'
+  },
+  en:{brandTitle:'CASHIER CONTROL SYSTEM',brandSub:'Error analysis dashboard',lblMonth:'Select period',optAll:'All months',lblStores:'Stores',allStores:'All stores',kpi1:'Total errors',kpi2:'Total losses',kpi3:'Average / month',kpi4:'Top offender',avgSub:'errors per month',chartMonthly:'Errors by month',chartViol:'Violation types',storesTitle:'Store ranking',cashiersTitle:'Cashier ranking (most errors)',tableTitle:'Detailed table',thKassir:'Cashier ↕',thDokon:'Store ↕',thSana:'Date ↕',thXatolik:'Violation',thSumma:'Amount ↕',thRisk:'Risk',errWord:'err',months:'mo.',stores:'stores',noData:'No data',sum:'sum',search:'Search cashier...',
+   navOverview:'Overview',navAnalytics:'Time analysis',navCashiers:'Cashiers',navBranches:'Branches',navTable:'Table',
+   titleAnalytics:'Time-based analysis',subAnalytics:'When errors happen most — by weekday, hour and shift',
+   heatmapTitle:'Error heatmap',heatmapHint:'Day × Hour',shiftTitle:'Shift analysis',
+   titleCashiers:'Cashier analytics',subCashiers:'Risk score computed from recorded error entries',
+   lbRiskTitle:'Highest-risk cashiers (TOP 10)',lbBestTitle:'Lowest-risk cashiers (TOP 10)',
+   titleBranches:'Branch analytics',subBranches:'Branch ranking by errors, damage and risk level',
+   branchTblTitle:'Branch ranking',bthName:'Branch',bthErr:'Errors',bthSum:'Damage',bthRisk:'Risk',bthTrend:'Trend',
+   riskLow:'Low',riskMedium:'Medium',riskHigh:'High',riskCritical:'Critical',
+   miniCashiers:'Cashiers',miniBranches:'Branches',miniRisk:'Avg. risk',miniUpdated:'Updated',
+   filterType:'Violation type',filterRisk:'Risk level',filterShift:'Shift',filterFrom:'From date',filterTo:'To date',filterReset:'Reset',
+   riskAll:'All',shiftAll:'All',shiftMorning:'Morning',shiftAfternoon:'Afternoon',shiftNight:'Evening/night',
+   setTheme:'Dark mode',setUpdate:'Last updated',setCache:'Cache',setClear:'Clear',
+   export:'Export',
+   trendVsPrev:'vs previous period',recoLow:'Metrics are stable. Continue routine monitoring.',recoMedium:'Increased observation and a short briefing are recommended.',recoHigh:'Additional training and stronger oversight are required.',recoCritical:'Requires immediate management attention and case review.',
+   profile:'Profile',totalErrors:'Total errors',totalDamage:'Total damage',riskScore:'Risk score',position:'Position',branchesWorked:'Branches',topViolation:'Most frequent violation',recommendation:'Recommendation',monthlyActivity:'Monthly activity',
+   noDateData:'Not enough date/time data to build a complete map',
+   offline:'Offline — showing cached data',cacheCleared:'Cache cleared, reloading...',
+   filterCount:'records'
+  }
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let lang='ru',ALL_DATA=[],KSO_DATA=[],activeStore='ALL',activeMonth='ALL',activeTab='kassir';
+let activeType='ALL',activeRisk='ALL',activeShift='ALL',activeDateFrom='',activeDateTo='';
+let chartMonthly=null,tableData=[],tablePage=1,tableSort={key:'summa',asc:false};
+let currentCashierRisk=[],currentBranchRisk=[],lastFetchTs=null,isFetching=false;
+const t=k=>T[lang][k]||k;
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+const fmtShort=n=>n>=1e9?(n/1e9).toFixed(1)+'млрд':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':n.toLocaleString('ru');
+const fmtFull=n=>n.toLocaleString('ru')+' '+t('sum');
+const debounce=(fn,ms)=>{let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms);};};
+
+function sortMonths(months){
+  const mo={'январь':1,'февраль':2,'март':3,'апрель':4,'май':5,'июнь':6,'июль':7,'август':8,'сентябрь':9,'октябрь':10,'ноябрь':11,'декабрь':12,'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12,'yanvar':1,'fevral':2,'mart':3,'aprel':4,'iyun':6,'iyul':7,'avgust':8,'sentabr':9,'oktyabr':10,'noyabr':11,'dekabr':12};
+  return[...months].sort((a,b)=>{const[ma,ya]=a.toLowerCase().split(' ');const[mb,yb]=b.toLowerCase().split(' ');const yd=parseInt(ya||0)-parseInt(yb||0);if(yd!==0)return yd;return(mo[ma]||0)-(mo[mb]||0);});
+}
+
+/* Best-effort date/time parsing — tune if your sheet's format differs */
+function parseSana(s){
+  if(!s)return null;
+  s=String(s).trim();
+  let m=s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
+  if(m){let[,d,mo,y]=m;if(y.length===2)y='20'+y;const dt=new Date(+y,+mo-1,+d);return isNaN(dt.getTime())?null:dt;}
+  m=s.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})/);
+  if(m){const[,y,mo,d]=m;const dt=new Date(+y,+mo-1,+d);return isNaN(dt.getTime())?null:dt;}
+  return null;
+}
+function parseHour(v){
+  if(!v)return null;
+  const m=String(v).trim().match(/^(\d{1,2})[:.]/);
+  if(!m)return null;
+  const h=+m[1];
+  return(h>=0&&h<24)?h:null;
+}
+function inShiftRange(hour,range){const[a,b]=range;return a<b?(hour>=a&&hour<b):(hour>=a||hour<b);}
+function findShift(hour){return SHIFTS.find(s=>inShiftRange(hour,s.range));}
+/* Real sheet data has inconsistent capitalization for the same violation type
+   (e.g. "Пересорт" vs "пересорт") — normalize for grouping/matching/filtering. */
+function normType(s){return(s||'').trim().toLowerCase();}
+
+/* ============================================================
+   DATA PARSING (preserved from original — do not alter column mapping
+   without checking the live Google Sheet structure)
+   ============================================================ */
+function parseCSV(text){
+  const lines=text.trim().split('\n'),rows=[];
+  for(let i=0;i<lines.length;i++){
+    const cols=lines[i].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+    if(cols.length<4)continue;
+    const oy=cols[0]||'',dokon=cols[1]||'',kassir=cols[3]||'';
+    if(!oy||!dokon||!kassir)continue;
+    if(/^\d+(\.\d+)?$/.test(dokon))continue;
+    if(dokon.length<2)continue;
+    const summa=parseFloat((cols[7]||'0').replace(/\s/g,'').replace(',','.'))||0;
+    rows.push({oy,dokon,sana:cols[2]||'',kassir,lavozim:cols[4]||'',kassa:cols[5]||'',vaqt:cols[6]||'',summa,xatolik:cols[8]||''});
+  }
+  return rows;
+}
+
+function parseKSO(text){
+  const lines=text.trim().split('\n'),rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+    if(!cols[0]&&!cols[1])continue;
+    // ARXIV format: Oy, No, Magazin, Mesyac, ErrCount, ErrSum, KrazhCount, KrazhSum
+    // KSO format:   No, Magazin, Mesyac, ErrCount, ErrSum, KrazhCount, KrazhSum
+    // Detect which one we're looking at by whether column 0 is a month name (has letters) or a row number
+    const isArxiv=/[a-zA-Zа-яА-Я]/.test(cols[0]);
+    if(isArxiv){
+      if(!cols[2])continue;
+      rows.push({oy:cols[0]||'',no:cols[1]||'',magazin:cols[2]||'',mesyac:cols[3]||'',
+        errCount:parseFloat(cols[4])||0,errSum:parseFloat((cols[5]||'0').replace(/\s/g,''))||0,
+        krazhCount:parseFloat(cols[6])||0,krazhSum:parseFloat((cols[7]||'0').replace(/\s/g,''))||0});
+    } else {
+      if(!cols[1])continue;
+      rows.push({oy:'',no:cols[0]||'',magazin:cols[1]||'',mesyac:cols[2]||'',
+        errCount:parseFloat(cols[3])||0,errSum:parseFloat((cols[4]||'0').replace(/\s/g,''))||0,
+        krazhCount:parseFloat(cols[5])||0,krazhSum:parseFloat((cols[6]||'0').replace(/\s/g,''))||0});
+    }
+  }
+  return rows;
+}
+
+/* ============================================================
+   CACHE LAYER — instant load + offline fallback
+   ============================================================ */
+const CacheStore={
+  get(){try{const raw=localStorage.getItem(CACHE_KEY);if(!raw)return null;const obj=JSON.parse(raw);if(!obj||!obj.timestamp||!Array.isArray(obj.allData))return null;return obj;}catch(e){return null;}},
+  isFresh(obj){return!!obj&&(Date.now()-obj.timestamp<=CACHE_TTL_MS);},
+  set(obj){try{localStorage.setItem(CACHE_KEY,JSON.stringify(obj));}catch(e){/* storage full/unavailable — non-fatal */}},
+  clear(){try{localStorage.removeItem(CACHE_KEY);}catch(e){}}
+};
+function clearCacheAndReload(){CacheStore.clear();toggleSettings();loadData(true);}
+
+/* ============================================================
+   THEME LAYER
+   ============================================================ */
+const ThemeManager={
+  init(){
+    let saved=null;try{saved=localStorage.getItem(THEME_KEY);}catch(e){}
+    const theme=saved||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+    this.apply(theme,true);
+  },
+  apply(theme,silent){
+    document.documentElement.setAttribute('data-theme',theme);
+    try{localStorage.setItem(THEME_KEY,theme);}catch(e){}
+    const sw=document.getElementById('theme-switch'); if(sw)sw.classList.toggle('on',theme==='dark');
+    const btn=document.getElementById('theme-toggle-btn'); if(btn){btn.textContent=theme==='dark'?'☀️':'🌙';btn.setAttribute('aria-pressed',theme==='dark');}
+    if(!silent&&chartMonthly){ if(activeTab==='kso')renderKSO(); else render(); }
+  },
+  toggle(){const cur=document.documentElement.getAttribute('data-theme')||'light';this.apply(cur==='dark'?'light':'dark',false);}
+};
+
+/* ============================================================
+   RISK ENGINE
+   ============================================================ */
+function riskBand(score){
+  if(score<=30)return{key:'low',label:t('riskLow')};
+  if(score<=60)return{key:'medium',label:t('riskMedium')};
+  if(score<=80)return{key:'high',label:t('riskHigh')};
+  return{key:'critical',label:t('riskCritical')};
+}
+function computeGroupedRiskScores(data,keyFn,extraFn){
+  const byKey={};
+  data.forEach(r=>{
+    const k=keyFn(r); if(!k)return;
+    if(!byKey[k])byKey[k]={name:k,count:0,sum:0,types:{},rows:[]};
+    const e=byKey[k]; e.count++; e.sum+=r.summa; e.rows.push(r);
+    const tk=(r.xatolik||'').trim().toLowerCase();
+    if(tk)e.types[tk]=(e.types[tk]||0)+1;
+    if(extraFn)extraFn(e,r);
+  });
+  const entries=Object.values(byKey);
+  const maxCount=Math.max(1,...entries.map(e=>e.count));
+  const maxSum=Math.max(1,...entries.map(e=>e.sum));
+  entries.forEach(e=>{
+    const freqScore=(e.count/maxCount)*100;
+    const dmgScore=(e.sum/maxSum)*100;
+    const typeVals=Object.values(e.types);
+    const maxRepeat=typeVals.length?Math.max(...typeVals):0;
+    const repeatScore=(maxRepeat>1&&e.count>1)?Math.min(100,((maxRepeat-1)/(e.count-1))*100):0;
+    const hasCritical=Object.keys(e.types).some(k=>CRITICAL_KEYWORDS.some(kw=>k.includes(kw)));
+    const criticalScore=hasCritical?100:0;
+    const raw=freqScore*RISK_WEIGHTS.frequency+dmgScore*RISK_WEIGHTS.damage+repeatScore*RISK_WEIGHTS.repeat+criticalScore*RISK_WEIGHTS.critical;
+    e.risk=Math.round(Math.min(100,Math.max(0,raw)));
+    e.band=riskBand(e.risk);
+  });
+  return entries.sort((a,b)=>b.risk-a.risk);
+}
+function computeCashierRiskScores(data){
+  return computeGroupedRiskScores(data,r=>r.kassir,(e,r)=>{e.store=r.dokon;e.position=r.lavozim;});
+}
+function computeBranchRiskScores(data){
+  return computeGroupedRiskScores(data,r=>r.dokon);
+}
+function riskMapOf(entries){const m={};entries.forEach(e=>m[e.name]=e);return m;}
+
+/* ============================================================
+   FILTERING (store + month + type + shift + date range + risk band)
+   ============================================================ */
+function baseFiltered(){
+  let d=ALL_DATA.filter(r=>(activeStore==='ALL'||r.dokon===activeStore)&&(activeMonth==='ALL'||r.oy===activeMonth)&&(activeType==='ALL'||normType(r.xatolik)===normType(activeType)));
+  if(activeShift!=='ALL'){
+    const shiftDef=SHIFTS.find(s=>s.key===activeShift);
+    d=d.filter(r=>{const hr=parseHour(r.vaqt);return hr!==null&&shiftDef&&inShiftRange(hr,shiftDef.range);});
+  }
+  if(activeDateFrom||activeDateTo){
+    const from=activeDateFrom?new Date(activeDateFrom):null;
+    const to=activeDateTo?new Date(activeDateTo):null;
+    d=d.filter(r=>{const dt=parseSana(r.sana);if(!dt)return false;if(from&&dt<from)return false;if(to&&dt>to)return false;return true;});
+  }
+  return d;
+}
+function getFiltered(){
+  let d=baseFiltered();
+  if(activeRisk!=='ALL'){
+    const entries=computeCashierRiskScores(d);
+    const allowed=new Set(entries.filter(e=>e.band.key===activeRisk).map(e=>e.name));
+    d=d.filter(r=>allowed.has(r.kassir));
+  }
+  return d;
+}
+
+function resetFilters(){
+  activeType='ALL';activeRisk='ALL';activeShift='ALL';activeDateFrom='';activeDateTo='';
+  const ft=document.getElementById('filter-type');if(ft)ft.value='ALL';
+  const fr=document.getElementById('filter-risk');if(fr)fr.value='ALL';
+  const fs=document.getElementById('filter-shift');if(fs)fs.value='ALL';
+  const dfrom=document.getElementById('filter-date-from');if(dfrom)dfrom.value='';
+  const dto=document.getElementById('filter-date-to');if(dto)dto.value='';
+  render();
+}
+function onFilterChange(){
+  activeType=document.getElementById('filter-type').value;
+  activeRisk=document.getElementById('filter-risk').value;
+  activeShift=document.getElementById('filter-shift').value;
+  activeDateFrom=document.getElementById('filter-date-from').value;
+  activeDateTo=document.getElementById('filter-date-to').value;
+  render();
+}
+function buildFilterOptions(){
+  const sel=document.getElementById('filter-type');
+  const cur=sel.value||'ALL';
+  const seen={};
+  ALL_DATA.forEach(r=>{if(!r.xatolik)return;const k=normType(r.xatolik);if(!seen[k])seen[k]=r.xatolik.trim();});
+  const types=Object.values(seen).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML=`<option value="ALL">${t('riskAll')}</option>`+types.map(x=>`<option value="${x.replace(/"/g,'&quot;')}">${x}</option>`).join('');
+  sel.value=types.some(x=>normType(x)===normType(cur))?cur:'ALL';
+  document.getElementById('risk-opt-all').textContent=t('riskAll');
+  document.getElementById('risk-opt-low').textContent=t('riskLow')+' (0-30)';
+  document.getElementById('risk-opt-medium').textContent=t('riskMedium')+' (31-60)';
+  document.getElementById('risk-opt-high').textContent=t('riskHigh')+' (61-80)';
+  document.getElementById('risk-opt-critical').textContent=t('riskCritical')+' (81-100)';
+  document.getElementById('shift-opt-all').textContent=t('shiftAll');
+  document.getElementById('shift-opt-morning').textContent=t('shiftMorning');
+  document.getElementById('shift-opt-afternoon').textContent=t('shiftAfternoon');
+  document.getElementById('shift-opt-night').textContent=t('shiftNight');
+}
+
+/* ============================================================
+   GLOBAL SEARCH — mirrors into the detail-table search (single source of truth)
+   ============================================================ */
+const _debouncedGlobalSearch=debounce(()=>{
+  const q=document.getElementById('global-search').value;
+  const tblSearch=document.getElementById('table-search');
+  if(tblSearch){tblSearch.value=q;filterTable();}
+  if(q&&activeTab==='kassir')jumpTo('sec-table');
+},280);
+function onGlobalSearch(){_debouncedGlobalSearch();}
+
+/* ============================================================
+   NAV / SIDEBAR / TABS (preserved + extended)
+   ============================================================ */
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.lang-btn').forEach((b,i)=>b.classList.toggle('active',['ru','uz','en'][i]===l));
+  applyLang();
+  if(activeTab==='kso')renderKSO();else render();
+}
+
+function applyLang(){
+  const map={'brand-title':'brandTitle','brand-sub':'brandSub','lbl-month':'lblMonth','lbl-stores':'lblStores'};
+  Object.keys(map).forEach(id=>{document.getElementById(id).textContent=t(map[id]);});
+  document.getElementById('month-select').options[0].textContent=t('optAll');
+  document.getElementById('kpi-lbl-1').textContent=t('kpi1');
+  document.getElementById('kpi-lbl-2').textContent=t('kpi2');
+  document.getElementById('kpi-lbl-3').textContent=t('kpi3');
+  document.getElementById('kpi-lbl-4').textContent=t('kpi4');
+  document.getElementById('kpi-avg-sub').textContent=t('avgSub');
+  document.getElementById('chart-monthly-title').textContent=t('chartMonthly');
+  document.getElementById('chart-viol-title').textContent=t('chartViol');
+  document.getElementById('stores-title').textContent=t('storesTitle');
+  document.getElementById('cashiers-title').textContent=t('cashiersTitle');
+  document.getElementById('table-title').textContent=t('tableTitle');
+  document.getElementById('th-kassir').textContent=t('thKassir');
+  document.getElementById('th-dokon').textContent=t('thDokon');
+  document.getElementById('th-sana').textContent=t('thSana');
+  document.getElementById('th-xatolik').textContent=t('thXatolik');
+  document.getElementById('th-summa').textContent=t('thSumma');
+  document.getElementById('th-risk').textContent=t('thRisk');
+  document.getElementById('table-search').placeholder=t('search');
+  document.getElementById('global-search').placeholder=t('search');
+  document.getElementById('nav-overview').textContent=t('navOverview');
+  document.getElementById('nav-analytics').textContent=t('navAnalytics');
+  document.getElementById('nav-cashiers').textContent=t('navCashiers');
+  document.getElementById('nav-branches').textContent=t('navBranches');
+  document.getElementById('nav-table').textContent=t('navTable');
+  document.getElementById('title-analytics').textContent=t('titleAnalytics');
+  document.getElementById('sub-analytics').textContent=t('subAnalytics');
+  document.getElementById('heatmap-title').textContent=t('heatmapTitle');
+  document.getElementById('heatmap-hint').textContent=t('heatmapHint');
+  document.getElementById('shift-title').textContent=t('shiftTitle');
+  document.getElementById('title-cashiers').textContent=t('titleCashiers');
+  document.getElementById('sub-cashiers').textContent=t('subCashiers');
+  document.getElementById('lb-risk-title').textContent=t('lbRiskTitle');
+  document.getElementById('lb-best-title').textContent=t('lbBestTitle');
+  document.getElementById('title-branches').textContent=t('titleBranches');
+  document.getElementById('sub-branches').textContent=t('subBranches');
+  document.getElementById('branch-tbl-title').textContent=t('branchTblTitle');
+  document.getElementById('bth-name').textContent=t('bthName');
+  document.getElementById('bth-err').textContent=t('bthErr');
+  document.getElementById('bth-sum').textContent=t('bthSum');
+  document.getElementById('bth-risk').textContent=t('bthRisk');
+  document.getElementById('bth-trend').textContent=t('bthTrend');
+  document.getElementById('kpi-mini-cashiers-lbl').textContent=t('miniCashiers');
+  document.getElementById('kpi-mini-branches-lbl').textContent=t('miniBranches');
+  document.getElementById('kpi-mini-risk-lbl').textContent=t('miniRisk');
+  document.getElementById('kpi-mini-updated-lbl').textContent=t('miniUpdated');
+  document.getElementById('lbl-filter-type').textContent=t('filterType');
+  document.getElementById('lbl-filter-risk').textContent=t('filterRisk');
+  document.getElementById('lbl-filter-shift').textContent=t('filterShift');
+  document.getElementById('lbl-filter-from').textContent=t('filterFrom');
+  document.getElementById('lbl-filter-to').textContent=t('filterTo');
+  document.getElementById('filter-reset-btn').textContent='✕ '+t('filterReset');
+  document.getElementById('set-lbl-theme').textContent=t('setTheme');
+  document.getElementById('set-lbl-update').textContent=t('setUpdate');
+  document.getElementById('set-lbl-cache').textContent=t('setCache');
+  document.getElementById('set-lbl-clear').textContent=t('setClear');
+  document.getElementById('export-lbl').textContent=t('export');
+  buildFilterOptions();
+  buildSidebar();
+}
+
+function jumpTo(id){
+  document.querySelectorAll('.nav-jump-btn').forEach(b=>b.classList.toggle('active',b.dataset.jump===id));
+  const el=document.getElementById(id);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  if(window.innerWidth<=820)closeSidebar();
+}
+
+function buildSidebar(){
+  const months=sortMonths([...new Set(ALL_DATA.map(r=>r.oy))]);
+  const sel=document.getElementById('month-select');
+  const cur=sel.value;
+  sel.innerHTML=`<option value="ALL">${t('optAll')}</option>`;
+  months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+  sel.value=cur;
+  sel.onchange=()=>{activeMonth=sel.value;render();if(window.innerWidth<=820)closeSidebar();};
+
+  const list=document.getElementById('store-list');
+  list.innerHTML='';
+
+  const ab=document.createElement('button');
+  ab.className='store-btn'+(activeStore==='ALL'?' active':'');
+  ab.dataset.store='ALL';
+  ab.onclick=()=>setStore('ALL');
+
+  if(activeTab==='kso'){
+    const map={};
+    KSO_DATA.forEach(r=>{const k=r.magazin.trim();if(!k)return;map[k]=(map[k]||0)+r.errCount;});
+    const stores=Object.keys(map).sort();
+    const totalErr=Object.values(map).reduce((a,b)=>a+b,0);
+    ab.innerHTML=`<span>${t('allStores')}</span><span class="store-count">${totalErr}</span>`;
+    list.appendChild(ab);
+    stores.forEach(s=>{
+      const btn=document.createElement('button');
+      btn.className='store-btn'+(activeStore===s?' active':'');
+      btn.dataset.store=s;
+      btn.innerHTML=`<span>${s}</span><span class="store-count">${map[s]}</span>`;
+      btn.onclick=()=>setStore(s);
+      list.appendChild(btn);
+    });
+  } else {
+    const stores=[...new Set(ALL_DATA.map(r=>r.dokon))].sort();
+    ab.innerHTML=`<span>${t('allStores')}</span><span class="store-count">${ALL_DATA.length}</span>`;
+    list.appendChild(ab);
+    stores.forEach(s=>{
+      const cnt=ALL_DATA.filter(r=>r.dokon===s).length;
+      const btn=document.createElement('button');
+      btn.className='store-btn'+(activeStore===s?' active':'');
+      btn.dataset.store=s;
+      btn.innerHTML=`<span>${s}</span><span class="store-count">${cnt}</span>`;
+      btn.onclick=()=>setStore(s);
+      list.appendChild(btn);
+    });
+  }
+}
+
+function setStore(s){activeStore=s;document.querySelectorAll('.store-btn').forEach(b=>b.classList.toggle('active',b.dataset.store===s));if(activeTab==='kso')renderKSO();else render();if(window.innerWidth<=820)closeSidebar();}
+
+function toggleSidebar(){
+  const open=document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('backdrop').classList.toggle('show',open);
+  document.body.classList.toggle('no-scroll',open);
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('show');
+  document.body.classList.remove('no-scroll');
+}
+
+function toggleExportMenu(){document.getElementById('export-dd').classList.toggle('show');document.getElementById('settings-pop').classList.remove('show');}
+function toggleSettings(){document.getElementById('settings-pop').classList.toggle('show');document.getElementById('export-dd').classList.remove('show');}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.export-menu-wrap')){document.getElementById('export-dd')?.classList.remove('show');document.getElementById('settings-pop')?.classList.remove('show');}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.getElementById('export-dd')?.classList.remove('show');
+    document.getElementById('settings-pop')?.classList.remove('show');
+    if(!document.getElementById('drill-modal').hidden)closeModal();
+  }
+});
+
+function setTab(tab){
+  const prev=activeTab;
+  activeTab=tab;
+  const valid=tab==='kso'?new Set(KSO_DATA.map(r=>r.magazin.trim())):new Set(ALL_DATA.map(r=>r.dokon));
+  if(activeStore!=='ALL'&&!valid.has(activeStore))activeStore='ALL';
+
+  document.getElementById('tab-kassir').classList.toggle('active',tab==='kassir');
+  document.getElementById('tab-kassir').setAttribute('aria-selected',tab==='kassir');
+  document.getElementById('tab-kso').classList.toggle('active',tab==='kso');
+  document.getElementById('tab-kso').setAttribute('aria-selected',tab==='kso');
+  document.querySelectorAll('.dock-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelector('.filter-area').style.display=tab==='kso'?'none':'block';
+  document.getElementById('nav-jump').style.display=tab==='kso'?'none':'flex';
+  buildSidebar();
+
+  const kEl=document.getElementById('kassir-content');
+  const sEl=document.getElementById('kso-content');
+  const outEl=prev==='kassir'?kEl:sEl;
+  const inEl=tab==='kassir'?kEl:sEl;
+
+  if(outEl===inEl){if(tab==='kso')renderKSO();else render();return;}
+
+  outEl.style.transition='opacity 0.18s ease, transform 0.18s ease';
+  outEl.style.opacity='0';
+  outEl.style.transform='translateY(-8px) scale(0.99)';
+
+  setTimeout(()=>{
+    outEl.style.display='none';
+    outEl.style.transition='';outEl.style.opacity='';outEl.style.transform='';
+    if(tab==='kso')renderKSO();else render();
+    inEl.style.display='flex';
+    inEl.classList.remove('tab-swapping');
+    void inEl.offsetWidth;
+    inEl.classList.add('tab-swapping');
+    inEl.addEventListener('animationend',function h(){inEl.classList.remove('tab-swapping');inEl.removeEventListener('animationend',h);});
+  },170);
+}
+
+/* ============================================================
+   TREND (period-over-period, used on KPI badges)
+   ============================================================ */
+function computeTrend(storeMonthData,months){
+  const sorted=sortMonths(months);
+  if(sorted.length<2)return null;
+  let curKey,prevKey;
+  if(activeMonth!=='ALL'&&sorted.includes(activeMonth)){
+    const idx=sorted.indexOf(activeMonth);
+    if(idx===0)return null;
+    curKey=sorted[idx];prevKey=sorted[idx-1];
+  } else {
+    curKey=sorted[sorted.length-1];prevKey=sorted[sorted.length-2];
+  }
+  const curCount=storeMonthData.filter(r=>r.oy===curKey).length;
+  const prevCount=storeMonthData.filter(r=>r.oy===prevKey).length;
+  const curSum=storeMonthData.filter(r=>r.oy===curKey).reduce((s,r)=>s+r.summa,0);
+  const prevSum=storeMonthData.filter(r=>r.oy===prevKey).reduce((s,r)=>s+r.summa,0);
+  const pct=(cur,prev)=>prev===0?(cur>0?100:0):Math.round(((cur-prev)/prev)*100);
+  return{countPct:pct(curCount,prevCount),sumPct:pct(curSum,prevSum),curKey,prevKey};
+}
+function trendBadgeHTML(pct){
+  if(pct===null||pct===undefined||!isFinite(pct))return'';
+  if(pct===0)return`<span class="trend-badge flat">→ 0% ${t('trendVsPrev')}</span>`;
+  const bad=pct>0; // for error/damage metrics, going UP is bad
+  const arrow=bad?'↑':'↓';
+  const cls=bad?'up-bad':'down-good';
+  return`<span class="trend-badge ${cls}">${arrow} ${Math.abs(pct)}% ${t('trendVsPrev')}</span>`;
+}
+
+/* ============================================================
+   MAIN RENDER (Kassir tab)
+   ============================================================ */
+function render(){
+  const data=getFiltered();
+  const storeScopeAllMonths=ALL_DATA.filter(r=>(activeStore==='ALL'||r.dokon===activeStore)&&(activeType==='ALL'||r.xatolik===activeType));
+  const months=[...new Set(data.map(r=>r.oy))];
+  document.getElementById('header-title').textContent=activeStore==='ALL'?t('allStores'):activeStore;
+  document.getElementById('header-sub').textContent=(activeMonth==='ALL'?t('optAll'):activeMonth)+' • '+data.length+' '+t('errWord');
+
+  const total=data.length,totalSum=data.reduce((s,r)=>s+r.summa,0),avg=months.length?Math.round(total/months.length):0;
+  const kMap={};data.forEach(r=>{kMap[r.kassir]=(kMap[r.kassir]||0)+1;});
+  const topK=Object.entries(kMap).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('kpi-count').textContent=total.toLocaleString('ru');
+  document.getElementById('kpi-count-sub').textContent=months.length+' '+t('months')+' • '+[...new Set(data.map(r=>r.dokon))].length+' '+t('stores');
+  document.getElementById('kpi-sum').textContent=fmtShort(totalSum);
+  document.getElementById('kpi-sum-sub').textContent=fmtFull(totalSum);
+  document.getElementById('kpi-avg').textContent=avg;
+  document.getElementById('kpi-avg-sub').textContent=t('avgSub');
+  if(topK){const n=topK[0].split(' ');document.getElementById('kpi-top').textContent=n[0]+(n[1]?' '+n[1][0]+'.':'');document.getElementById('kpi-top-sub').textContent=topK[0]+' • '+topK[1]+' '+t('errWord');}
+  else{document.getElementById('kpi-top').textContent='—';document.getElementById('kpi-top-sub').textContent='—';}
+
+  const allMonthsInScope=[...new Set(storeScopeAllMonths.map(r=>r.oy))];
+  const trend=computeTrend(storeScopeAllMonths,allMonthsInScope);
+  document.getElementById('kpi-count-trend').innerHTML=trend?trendBadgeHTML(trend.countPct):'';
+  document.getElementById('kpi-sum-trend').innerHTML=trend?trendBadgeHTML(trend.sumPct):'';
+
+  currentCashierRisk=computeCashierRiskScores(data);
+  currentBranchRisk=computeBranchRiskScores(data);
+  const avgRisk=currentCashierRisk.length?Math.round(currentCashierRisk.reduce((s,e)=>s+e.risk,0)/currentCashierRisk.length):0;
+  document.getElementById('kpi-mini-cashiers').textContent=new Set(data.map(r=>r.kassir)).size;
+  document.getElementById('kpi-mini-branches').textContent=new Set(data.map(r=>r.dokon)).size;
+  document.getElementById('kpi-mini-risk').textContent=avgRisk;
+  document.getElementById('filter-count').textContent=total.toLocaleString('ru')+' '+t('filterCount');
+
+  renderChart(data);
+  renderViol(data);
+  renderStoreBars(data);
+  renderCashierBars(data);
+  renderHeatmap(data);
+  renderShifts(data);
+  renderCashierLeaderboards();
+  renderBranchTable();
+
+  tableData=[...data].sort((a,b)=>b.summa-a.summa);tablePage=1;renderTable();
+}
+
+/* ============================================================
+   CHART.JS — monthly trend (gradient, rounded bars)
+   ============================================================ */
+function themeColors(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  return{tick:dark?'#8896AD':'#94A3B8',grid:dark?'rgba(255,255,255,0.06)':'rgba(15,23,42,0.05)',tooltipBg:dark?'#0B1220':'#0F172A',tooltipTitle:'#fff',tooltipBody:dark?'#B6C0D3':'#E2E8F0'};
+}
+function renderChart(data){
+  const mm={};data.forEach(r=>{if(!mm[r.oy])mm[r.oy]={c:0,s:0};mm[r.oy].c++;mm[r.oy].s+=r.summa;});
+  const labels=sortMonths(Object.keys(mm));
+  const colors=themeColors();
+  if(chartMonthly)chartMonthly.destroy();
+  const ctx=document.getElementById('chart-monthly').getContext('2d');
+  const barGrad=ctx.createLinearGradient(0,0,0,220);
+  barGrad.addColorStop(0,'rgba(227,6,19,0.95)');
+  barGrad.addColorStop(1,'rgba(227,6,19,0.55)');
+  const lineFillGrad=ctx.createLinearGradient(0,0,0,220);
+  lineFillGrad.addColorStop(0,'rgba(255,210,0,0.28)');
+  lineFillGrad.addColorStop(1,'rgba(255,210,0,0.02)');
+  chartMonthly=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:t('kpi1'),data:labels.map(m=>mm[m].c),backgroundColor:barGrad,borderRadius:8,borderSkipped:false,maxBarThickness:34,yAxisID:'y1'},
+      {label:t('kpi2')+' (тыс.)',data:labels.map(m=>Math.round(mm[m].s/1000)),type:'line',borderColor:'#FFD200',backgroundColor:lineFillGrad,borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#FFD200',pointBorderColor:'#fff',pointBorderWidth:2,tension:0.4,fill:true,yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:600,easing:'easeOutQuart'},interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:colors.tick,font:{size:11},usePointStyle:true,pointStyle:'circle',boxWidth:8,boxHeight:8}},
+        tooltip:{backgroundColor:colors.tooltipBg,borderColor:'#444',borderWidth:1,titleColor:colors.tooltipTitle,bodyColor:colors.tooltipBody,padding:12,cornerRadius:10,displayColors:true}},
+      scales:{x:{ticks:{color:colors.tick,font:{size:11}},grid:{display:false}},
+        y1:{position:'left',beginAtZero:true,ticks:{color:colors.tick,font:{size:11}},grid:{color:colors.grid}},
+        y2:{position:'right',beginAtZero:true,ticks:{color:'#b38a00',font:{size:11}},grid:{drawOnChartArea:false}}}}
+  });
+}
+
+function renderViol(data){
+  const vm={};data.forEach(r=>{if(!r.xatolik)return;const k=r.xatolik.trim().toLowerCase();if(!vm[k])vm[k]={name:r.xatolik.trim(),count:0};vm[k].count++;});
+  const items=Object.values(vm).sort((a,b)=>b.count-a.count);
+  const max=items[0]?.count||1;
+  const colors=['#E30613','#FFD200','#FF6B35','#16A34A','#2563EB','#8896AD'];
+  document.getElementById('viol-bars').innerHTML=items.length?items.map((v,i)=>`
+    <div class="viol-item">
+      <div class="viol-top"><span class="viol-name">${v.name}</span><span class="viol-vals">${v.count} • ${(v.count/max*100).toFixed(0)}%</span></div>
+      <div class="viol-track"><div class="viol-fill" style="width:${(v.count/max*100).toFixed(1)}%;background:${colors[i]||'#888'}"></div></div>
+    </div>`).join(''):`<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderStoreBars(data){
+  const map={};data.forEach(r=>{map[r.dokon]=(map[r.dokon]||0)+1;});
+  const items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const max=items[0]?.[1]||1;
+  const bMap=riskMapOf(currentBranchRisk);
+  document.getElementById('store-bars').innerHTML=items.length?items.map(([n,c],i)=>{
+    const risk=bMap[n];
+    return`<div class="bar-row" onclick="openBranchModal('${n.replace(/'/g,"\\'")}')"><div class="bar-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div>
+    <div class="bar-info"><div class="bar-name">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${(c/max*100).toFixed(1)}%"></div></div></div>
+    ${risk?`<span class="risk-pill ${risk.band.key}">${risk.risk}</span>`:''}
+    <div class="bar-val">${c} ${t('errWord')}</div></div>`;
+  }).join(''):`<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderCashierBars(data){
+  const map={};data.forEach(r=>{map[r.kassir]=(map[r.kassir]||0)+1;});
+  const items=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const max=items[0]?.[1]||1;
+  const cMap=riskMapOf(currentCashierRisk);
+  document.getElementById('cashier-bars').innerHTML=items.length?items.map(([n,c],i)=>{
+    const risk=cMap[n];
+    return`<div class="bar-row" onclick="openCashierModal('${n.replace(/'/g,"\\'")}')"><div class="bar-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div>
+    <div class="bar-info"><div class="bar-name">${n}</div><div class="bar-track"><div class="bar-fill y" style="width:${(c/max*100).toFixed(1)}%"></div></div></div>
+    ${risk?`<span class="risk-pill ${risk.band.key}">${risk.risk}</span>`:''}
+    <div class="bar-val">${c} ${t('errWord')}</div></div>`;
+  }).join(''):`<div class="no-data">${t('noData')}</div>`;
+}
+
+/* ============================================================
+   HEATMAP — day-of-week × hour
+   ============================================================ */
+const DOW_LABELS={ru:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],uz:['Du','Se','Chr','Pay','Ju','Sha','Ya'],en:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']};
+function renderHeatmap(data){
+  const matrix=Array.from({length:7},()=>Array(24).fill(0));
+  let usable=0;
+  data.forEach(r=>{
+    const dt=parseSana(r.sana),hr=parseHour(r.vaqt);
+    if(dt&&hr!==null){const dow=(dt.getDay()+6)%7;matrix[dow][hr]++;usable++;}
+  });
+  const flat=matrix.flat();
+  const max=Math.max(1,...flat);
+  const grid=document.getElementById('heatmap-grid');
+  const dowLabels=DOW_LABELS[lang]||DOW_LABELS.ru;
+  let html='<div></div>';
+  for(let h=0;h<24;h++)html+=`<div class="hm-hourlabel">${h%3===0?h:''}</div>`;
+  for(let d=0;d<7;d++){
+    html+=`<div class="hm-daylabel">${dowLabels[d]}</div>`;
+    for(let h=0;h<24;h++){
+      const v=matrix[d][h];
+      const alpha=v===0?0:Math.min(1,0.15+(v/max)*0.85);
+      html+=`<div class="hm-cell" title="${dowLabels[d]} ${h}:00 — ${v}" style="background:${v===0?'var(--surface-2)':'rgba(227,6,19,'+alpha.toFixed(2)+')'}"></div>`;
+    }
+  }
+  grid.innerHTML=html;
+  document.getElementById('heatmap-legend').innerHTML=`
+    <span>0</span>
+    <div class="hm-legend-cell" style="background:rgba(227,6,19,0.15)"></div>
+    <div class="hm-legend-cell" style="background:rgba(227,6,19,0.4)"></div>
+    <div class="hm-legend-cell" style="background:rgba(227,6,19,0.7)"></div>
+    <div class="hm-legend-cell" style="background:rgba(227,6,19,1)"></div>
+    <span>${max}</span>`;
+  const note=document.getElementById('heatmap-note');
+  if(data.length>0&&usable/data.length<0.4){
+    note.style.display='block';
+    note.textContent='ℹ️ '+t('noDateData')+` (${usable}/${data.length})`;
+  } else {
+    note.style.display='none';
+  }
+}
+
+/* ============================================================
+   SHIFT ANALYSIS
+   ============================================================ */
+function renderShifts(data){
+  const cMap=riskMapOf(currentCashierRisk);
+  const stats=SHIFTS.map(s=>({...s,count:0,sum:0,cashiers:new Set(),riskSum:0,riskN:0}));
+  data.forEach(r=>{
+    const hr=parseHour(r.vaqt);if(hr===null)return;
+    const s=stats.find(s=>inShiftRange(hr,s.range));
+    if(!s)return;
+    s.count++;s.sum+=r.summa;s.cashiers.add(r.kassir);
+    const risk=cMap[r.kassir];if(risk){s.riskSum+=risk.risk;s.riskN++;}
+  });
+  const shiftLabel={morning:t('shiftMorning'),afternoon:t('shiftAfternoon'),night:t('shiftNight')};
+  document.getElementById('shift-cards').innerHTML=stats.map(s=>`
+    <div class="shift-card">
+      <div class="shift-icon">${s.icon}</div>
+      <div class="shift-name">${shiftLabel[s.key]}</div>
+      <div class="shift-stat"><span>${t('kpi1')}</span><b>${s.count}</b></div>
+      <div class="shift-stat"><span>${t('kpi2')}</span><b>${fmtShort(s.sum)}</b></div>
+      <div class="shift-stat"><span>${t('miniRisk')}</span><b>${s.riskN?Math.round(s.riskSum/s.riskN):'—'}</b></div>
+    </div>`).join('');
+}
+
+/* ============================================================
+   LEADERBOARDS (cashier risk) + BRANCH TABLE
+   ============================================================ */
+function initials(name){return(name||'?').trim().split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';}
+
+function renderCashierLeaderboards(){
+  const top10=currentCashierRisk.slice(0,10);
+  const best10=[...currentCashierRisk].sort((a,b)=>a.risk-b.risk).slice(0,10);
+  const rowHTML=e=>`<div class="lb-row" onclick="openCashierModal('${e.name.replace(/'/g,"\\'")}')">
+      <div class="lb-avatar">${initials(e.name)}</div>
+      <div class="lb-info"><div class="lb-name">${e.name}</div><div class="lb-sub">${e.store||''} • ${e.count} ${t('errWord')}</div></div>
+      <div class="lb-score"><div class="num" style="color:var(--${e.band.key==='low'?'success':e.band.key==='medium'?'warning':e.band.key==='high'?'orange':'red'})">${e.risk}</div><div class="lbl">${e.band.label}</div></div>
+    </div>`;
+  document.getElementById('cashier-risk-list').innerHTML=top10.length?top10.map(rowHTML).join(''):`<div class="no-data">${t('noData')}</div>`;
+  document.getElementById('cashier-best-list').innerHTML=best10.length?best10.map(rowHTML).join(''):`<div class="no-data">${t('noData')}</div>`;
+}
+
+function renderBranchTable(){
+  const rows=currentBranchRisk;
+  const scopeData=ALL_DATA.filter(r=>activeType==='ALL'||r.xatolik===activeType);
+  const monthsInScope=[...new Set(scopeData.map(r=>r.oy))];
+  const sortedMonths=sortMonths(monthsInScope);
+  const curM=sortedMonths[sortedMonths.length-1],prevM=sortedMonths[sortedMonths.length-2];
+  document.getElementById('branch-table').innerHTML=rows.length?rows.map((e,i)=>{
+    let trendHTML=`<span class="trend-arrow flat">—</span>`;
+    if(curM&&prevM){
+      const curC=scopeData.filter(r=>r.dokon===e.name&&r.oy===curM).length;
+      const prevC=scopeData.filter(r=>r.dokon===e.name&&r.oy===prevM).length;
+      if(prevC>0||curC>0){
+        const pct=prevC===0?100:Math.round(((curC-prevC)/prevC)*100);
+        if(pct>0)trendHTML=`<span class="trend-arrow up">↑ ${pct}%</span>`;
+        else if(pct<0)trendHTML=`<span class="trend-arrow down">↓ ${Math.abs(pct)}%</span>`;
+        else trendHTML=`<span class="trend-arrow flat">→ 0%</span>`;
+      }
+    }
+    return`<tr><td style="color:var(--muted)">${i+1}</td>
+      <td><button class="name-link" onclick="openBranchModal('${e.name.replace(/'/g,"\\'")}')">${e.name}</button></td>
+      <td style="font-weight:700;color:var(--red)">${e.count}</td>
+      <td>${e.sum>0?fmtFull(e.sum):'—'}</td>
+      <td><span class="risk-pill ${e.band.key}">${e.risk} · ${e.band.label}</span></td>
+      <td>${trendHTML}</td></tr>`;
+  }).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">${t('noData')}</td></tr>`;
+}
+
+/* ============================================================
+   DETAIL TABLE (preserved + risk column)
+   ============================================================ */
+function sortTable(key){
+  if(tableSort.key===key)tableSort.asc=!tableSort.asc;else{tableSort.key=key;tableSort.asc=false;}
+  tableData.sort((a,b)=>{const av=a[key]||'',bv=b[key]||'';if(typeof av==='number')return tableSort.asc?av-bv:bv-av;return tableSort.asc?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));});
+  tablePage=1;renderTable();
+}
+
+function filterTable(){
+  const q=document.getElementById('table-search').value.toLowerCase();
+  tableData=getFiltered().filter(r=>r.kassir.toLowerCase().includes(q)||r.dokon.toLowerCase().includes(q)||r.xatolik.toLowerCase().includes(q));
+  tablePage=1;renderTable();
+}
+
+function renderTable(){
+  const total=tableData.length,start=(tablePage-1)*PAGE_SIZE,page=tableData.slice(start,start+PAGE_SIZE);
+  const maxS=Math.max(...tableData.map(r=>r.summa),1);
+  const cMap=riskMapOf(currentCashierRisk);
+  document.getElementById('page-info').textContent=`Показано ${Math.min(start+PAGE_SIZE,total)} из ${total}`;
+  document.getElementById('detail-table').innerHTML=page.length?page.map((r,i)=>{
+    const sc=r.summa>maxS*0.6?'sum-high':r.summa>maxS*0.3?'sum-mid':'';
+    const risk=cMap[r.kassir];
+    return`<tr><td style="color:var(--muted);font-size:11px">${start+i+1}</td>
+      <td><button class="name-link" onclick="openCashierModal('${r.kassir.replace(/'/g,"\\'")}')">${r.kassir}</button></td>
+      <td style="color:var(--sub)">${r.dokon}</td><td style="color:var(--muted);font-size:11px">${r.sana}</td>
+      <td><span class="badge">${r.xatolik}</span></td><td class="${sc}">${r.summa>0?fmtFull(r.summa):'—'}</td>
+      <td>${risk?`<span class="risk-pill ${risk.band.key}">${risk.risk}</span>`:'—'}</td></tr>`;
+  }).join(''):`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">${t('noData')}</td></tr>`;
+  const tp=Math.ceil(total/PAGE_SIZE);
+  const bw=document.getElementById('page-btns');bw.innerHTML='';
+  for(let p=1;p<=Math.min(tp,7);p++){const b=document.createElement('button');b.className='page-btn'+(p===tablePage?' active':'');b.textContent=p;b.onclick=()=>{tablePage=p;renderTable();};bw.appendChild(b);}
+}
+
+/* ============================================================
+   KSO TAB (preserved + risk pill styling)
+   ============================================================ */
+function renderKSO(){
+  const raw=activeStore==='ALL'?KSO_DATA:KSO_DATA.filter(r=>r.magazin.trim()===activeStore);
+  const storeCount=activeStore==='ALL'?new Set(KSO_DATA.map(r=>r.magazin.trim())).size:1;
+  document.getElementById('header-title').textContent=activeStore==='ALL'?t('allStores'):activeStore;
+  document.getElementById('header-sub').textContent='КСО • '+storeCount+' магазинов';
+  if(!raw.length){document.getElementById('kso-table').innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">${t('noData')}</td></tr>`;return;}
+
+  const grouped={};
+  raw.forEach(r=>{
+    const key=r.magazin.trim();
+    if(!grouped[key])grouped[key]={magazin:key,mesyac:r.mesyac,errCount:0,errSum:0,krazhCount:0,krazhSum:0};
+    grouped[key].errCount+=r.errCount;grouped[key].errSum+=r.errSum;
+    grouped[key].krazhCount+=r.krazhCount;grouped[key].krazhSum+=r.krazhSum;
+  });
+  const data=Object.values(grouped);
+
+  const tec=data.reduce((s,r)=>s+r.errCount,0),tes=data.reduce((s,r)=>s+r.errSum,0),tkc=data.reduce((s,r)=>s+r.krazhCount,0),tks=data.reduce((s,r)=>s+r.krazhSum,0);
+  document.getElementById('kso-err-count').textContent=tec.toLocaleString('ru');
+  document.getElementById('kso-err-count-sub').textContent=data.length+' магазинов';
+  document.getElementById('kso-err-sum').textContent=fmtShort(tes);
+  document.getElementById('kso-err-sum-sub').textContent=fmtFull(tes);
+  document.getElementById('kso-krazh-count').textContent=tkc.toLocaleString('ru');
+  document.getElementById('kso-krazh-count-sub').textContent=data.length+' магазинов';
+  document.getElementById('kso-krazh-sum').textContent=fmtShort(tks);
+  document.getElementById('kso-krazh-sum-sub').textContent=fmtFull(tks);
+
+  const es=[...data].sort((a,b)=>b.errCount-a.errCount).slice(0,8),em=es[0]?.errCount||1;
+  document.getElementById('kso-err-bars').innerHTML=es.map((r,i)=>`<div class="bar-row"><div class="bar-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div><div class="bar-info"><div class="bar-name">${r.magazin}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.errCount/em*100).toFixed(1)}%"></div></div></div><div class="bar-val">${r.errCount} шт</div></div>`).join('')||`<div class="no-data">${t('noData')}</div>`;
+
+  const ks=[...data].sort((a,b)=>b.krazhCount-a.krazhCount).slice(0,8),km=ks[0]?.krazhCount||1;
+  document.getElementById('kso-krazh-bars').innerHTML=ks.map((r,i)=>`<div class="bar-row"><div class="bar-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div><div class="bar-info"><div class="bar-name">${r.magazin}</div><div class="bar-track"><div class="bar-fill y" style="width:${(r.krazhCount/km*100).toFixed(1)}%"></div></div></div><div class="bar-val">${r.krazhCount} шт</div></div>`).join('')||`<div class="no-data">${t('noData')}</div>`;
+
+  document.getElementById('kso-table').innerHTML=data.sort((a,b)=>b.errCount-a.errCount).map((r,i)=>`<tr><td style="color:var(--muted)">${i+1}</td><td style="font-weight:600;color:var(--text)">${r.magazin}</td><td style="color:var(--sub)">Все периоды</td><td style="color:var(--red);font-weight:700">${r.errCount}</td><td style="color:var(--sub)">${r.errSum>0?fmtFull(r.errSum):'—'}</td><td style="color:var(--warning);font-weight:700">${r.krazhCount}</td><td style="color:var(--sub)">${r.krazhSum>0?fmtFull(r.krazhSum):'—'}</td></tr>`).join('');
+}
+
+/* ============================================================
+   DRILL-DOWN MODAL
+   ============================================================ */
+function openModal(html){
+  document.getElementById('modal-body').innerHTML=html;
+  const m=document.getElementById('drill-modal');
+  m.hidden=false;
+  document.body.classList.add('no-scroll');
+}
+function closeModal(){
+  document.getElementById('drill-modal').hidden=true;
+  document.body.classList.remove('no-scroll');
+}
+
+function recoTextFor(bandKey){
+  return{low:t('recoLow'),medium:t('recoMedium'),high:t('recoHigh'),critical:t('recoCritical')}[bandKey]||'';
+}
+
+function openCashierModal(name){
+  const rows=ALL_DATA.filter(r=>r.kassir===name);
+  if(!rows.length)return;
+  const entries=computeCashierRiskScores(rows);
+  const e=entries.find(x=>x.name===name)||entries[0];
+  const stores=[...new Set(rows.map(r=>r.dokon))];
+  const posCount={};rows.forEach(r=>{if(r.lavozim)posCount[r.lavozim]=(posCount[r.lavozim]||0)+1;});
+  const topPos=Object.entries(posCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
+  const typeCount={};rows.forEach(r=>{if(r.xatolik)typeCount[r.xatolik]=(typeCount[r.xatolik]||0)+1;});
+  const topType=Object.entries(typeCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
+  const sumTotal=rows.reduce((s,r)=>s+r.summa,0);
+  const byMonth={};rows.forEach(r=>{byMonth[r.oy]=(byMonth[r.oy]||0)+1;});
+  const monthsSorted=sortMonths(Object.keys(byMonth));
+  const maxM=Math.max(1,...monthsSorted.map(m=>byMonth[m]));
+
+  const html=`
+    <div class="modal-head">
+      <div class="modal-avatar">${initials(name)}</div>
+      <div><div class="modal-title" id="modal-title-el">${name}</div><div class="modal-subtitle">${topPos} • ${stores.join(', ')}</div></div>
+    </div>
+    <div class="modal-stats">
+      <div class="modal-stat"><div class="v" style="color:var(--red)">${rows.length}</div><div class="l">${t('totalErrors')}</div></div>
+      <div class="modal-stat"><div class="v">${fmtShort(sumTotal)}</div><div class="l">${t('totalDamage')}</div></div>
+      <div class="modal-stat"><div class="v" style="color:var(--${e.band.key==='low'?'success':e.band.key==='medium'?'warning':e.band.key==='high'?'orange':'red'})">${e.risk}</div><div class="l">${t('riskScore')}</div></div>
+    </div>
+    <div class="modal-section-title">${t('monthlyActivity')}</div>
+    <div class="bar-list">${monthsSorted.map(m=>`<div class="bar-row" style="cursor:default"><div class="bar-info"><div class="bar-name">${m}</div><div class="bar-track"><div class="bar-fill" style="width:${(byMonth[m]/maxM*100).toFixed(1)}%"></div></div></div><div class="bar-val">${byMonth[m]}</div></div>`).join('')}</div>
+    <div class="modal-section-title">${t('topViolation')}</div>
+    <div style="font-size:12px;color:var(--sub)">${topType} <span style="color:var(--muted)">(${typeCount[topType]||0}×)</span></div>
+    <div class="modal-section-title">${t('recommendation')}</div>
+    <div class="modal-reco ${e.band.key}">${recoTextFor(e.band.key)}</div>
+  `;
+  openModal(html);
+}
+
+function openBranchModal(store){
+  const rows=ALL_DATA.filter(r=>r.dokon===store);
+  if(!rows.length)return;
+  const entries=computeBranchRiskScores(rows);
+  const e=entries.find(x=>x.name===store)||entries[0];
+  const cashiers=[...new Set(rows.map(r=>r.kassir))];
+  const sumTotal=rows.reduce((s,r)=>s+r.summa,0);
+  const byMonth={};rows.forEach(r=>{byMonth[r.oy]=(byMonth[r.oy]||0)+1;});
+  const monthsSorted=sortMonths(Object.keys(byMonth));
+  const maxM=Math.max(1,...monthsSorted.map(m=>byMonth[m]));
+  const cMap={};rows.forEach(r=>{cMap[r.kassir]=(cMap[r.kassir]||0)+1;});
+  const topCashiers=Object.entries(cMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxC=topCashiers[0]?.[1]||1;
+
+  const html=`
+    <div class="modal-head">
+      <div class="modal-avatar">🏬</div>
+      <div><div class="modal-title" id="modal-title-el">${store}</div><div class="modal-subtitle">${cashiers.length} ${t('miniCashiers').toLowerCase()}</div></div>
+    </div>
+    <div class="modal-stats">
+      <div class="modal-stat"><div class="v" style="color:var(--red)">${rows.length}</div><div class="l">${t('totalErrors')}</div></div>
+      <div class="modal-stat"><div class="v">${fmtShort(sumTotal)}</div><div class="l">${t('totalDamage')}</div></div>
+      <div class="modal-stat"><div class="v" style="color:var(--${e.band.key==='low'?'success':e.band.key==='medium'?'warning':e.band.key==='high'?'orange':'red'})">${e.risk}</div><div class="l">${t('riskScore')}</div></div>
+    </div>
+    <div class="modal-section-title">${t('monthlyActivity')}</div>
+    <div class="bar-list">${monthsSorted.map(m=>`<div class="bar-row" style="cursor:default"><div class="bar-info"><div class="bar-name">${m}</div><div class="bar-track"><div class="bar-fill" style="width:${(byMonth[m]/maxM*100).toFixed(1)}%"></div></div></div><div class="bar-val">${byMonth[m]}</div></div>`).join('')}</div>
+    <div class="modal-section-title">${t('lbRiskTitle')}</div>
+    <div class="bar-list">${topCashiers.map(([n,c],i)=>`<div class="bar-row" onclick="closeModal();setTimeout(()=>openCashierModal('${n.replace(/'/g,"\\'")}'),200)"><div class="bar-rank ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div><div class="bar-info"><div class="bar-name">${n}</div><div class="bar-track"><div class="bar-fill y" style="width:${(c/maxC*100).toFixed(1)}%"></div></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
+    <div class="modal-section-title">${t('recommendation')}</div>
+    <div class="modal-reco ${e.band.key}">${recoTextFor(e.band.key)}</div>
+  `;
+  openModal(html);
+}
+
+/* ============================================================
+   EXPORTS — CSV (preserved) / Excel (SheetJS, lazy-loaded) / PDF (print)
+   ============================================================ */
+function exportCSV(){
+  const data=getFiltered();
+  const rows=[['Oy','Dokon','Sana','Kassir','Lavozim','Kassa','Vaqt','Summa','Xatolik']];
+  data.forEach(r=>rows.push([r.oy,r.dokon,r.sana,r.kassir,r.lavozim,r.kassa,r.vaqt,r.summa,r.xatolik]));
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n'));
+  a.download='kassir_data.csv';a.click();
+}
+
+let sheetJsLoading=null;
+function loadSheetJS(){
+  if(window.XLSX)return Promise.resolve();
+  if(sheetJsLoading)return sheetJsLoading;
+  sheetJsLoading=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=resolve;s.onerror=reject;
+    document.head.appendChild(s);
+  });
+  return sheetJsLoading;
+}
+async function exportExcel(){
+  try{
+    await loadSheetJS();
+    const data=getFiltered();
+    const rows=data.map(r=>({Oy:r.oy,Dokon:r.dokon,Sana:r.sana,Kassir:r.kassir,Lavozim:r.lavozim,Kassa:r.kassa,Vaqt:r.vaqt,Summa:r.summa,Xatolik:r.xatolik}));
+    const ws=XLSX.utils.json_to_sheet(rows);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Kassir');
+    XLSX.writeFile(wb,'kassir_data.xlsx');
+  }catch(e){
+    alert('Excel export uchun internet ulanishi kerak / Excel export requires an internet connection.');
+  }
+}
+
+function exportPDF(){
+  const data=getFiltered();
+  const total=data.length,sum=data.reduce((s,r)=>s+r.summa,0);
+  const scopeLabel=(activeStore==='ALL'?t('allStores'):activeStore)+' • '+(activeMonth==='ALL'?t('optAll'):activeMonth);
+  let rowsHTML=data.slice(0,500).map((r,i)=>`<tr><td>${i+1}</td><td>${r.kassir}</td><td>${r.dokon}</td><td>${r.sana}</td><td>${r.xatolik}</td><td>${r.summa?fmtFull(r.summa):'—'}</td></tr>`).join('');
+  document.getElementById('print-report').innerHTML=`
+    <h1>Korzinka — ${t('kpi1')}</h1>
+    <div class="pr-meta">${scopeLabel} &nbsp;|&nbsp; ${t('kpi1')}: ${total} &nbsp;|&nbsp; ${t('kpi2')}: ${fmtFull(sum)} &nbsp;|&nbsp; ${new Date().toLocaleString()}</div>
+    <table><thead><tr><th>#</th><th>${t('thKassir')}</th><th>${t('thDokon')}</th><th>${t('thSana')}</th><th>${t('thXatolik')}</th><th>${t('thSumma')}</th></tr></thead><tbody>${rowsHTML}</tbody></table>
+    ${data.length>500?`<p style="margin-top:10px;font-size:10px;color:#888">${data.length-500} more rows not shown in print preview...</p>`:''}
+  `;
+  window.print();
+}
+
+/* ============================================================
+   LOADING / DATA FETCH (cache-first, background refresh, offline fallback)
+   ============================================================ */
+function showOfflineBanner(show){document.getElementById('offline-banner').classList.toggle('show',!!show);}
+function updateLastUpdated(ts,stale){
+  lastFetchTs=ts;
+  const el=document.getElementById('last-updated');
+  const mini=document.getElementById('kpi-mini-updated');
+  const label=ts?new Date(ts).toLocaleTimeString(lang==='ru'?'ru-RU':lang==='uz'?'uz-UZ':'en-US',{hour:'2-digit',minute:'2-digit'}):'—';
+  if(el)el.textContent=label+(stale?' ('+t('offline').split('—')[0].trim()+')':'');
+  if(mini)mini.textContent=label;
+}
+function hideLoadingInstant(){
+  const ld=document.getElementById('loading');
+  ld.classList.add('instant');
+}
+function fadeOutLoading(){
+  const ld=document.getElementById('loading');
+  ld.classList.add('fade-out');
+  setTimeout(()=>{ld.style.display='none';},380);
+}
+function showErrorState(){
+  document.getElementById('loading').classList.add('has-error');
+}
+
+async function loadData(forceNetwork){
+  if(isFetching&&!forceNetwork)return;
+  const cached=CacheStore.get();
+  let usedCache=false;
+  if(cached&&!forceNetwork){
+    ALL_DATA=cached.allData;KSO_DATA=cached.ksoData;
+    usedCache=true;
+    document.getElementById('loading').classList.remove('has-error');
+    hideLoadingInstant();
+    applyLang();buildFilterOptions();buildSidebar();
+    if(activeTab==='kso')renderKSO();else render();
+    updateLastUpdated(cached.timestamp,!CacheStore.isFresh(cached));
+  }
+  isFetching=true;
+  const refreshBtn=document.getElementById('refresh-btn');
+  if(refreshBtn)refreshBtn.textContent='…';
+  try{
+    const[r1,r2]=await Promise.all([fetch(CSV_URL),fetch(KSO_URL)]);
+    const[t1,t2]=await Promise.all([r1.text(),r2.text()]);
+    const newAll=parseCSV(t1),newKso=parseKSO(t2);
+    ALL_DATA=newAll;KSO_DATA=newKso;
+    CacheStore.set({allData:newAll,ksoData:newKso,timestamp:Date.now()});
+    document.getElementById('loading').classList.remove('has-error');
+    applyLang();buildFilterOptions();buildSidebar();
+    if(activeTab==='kso')renderKSO();else render();
+    updateLastUpdated(Date.now(),false);
+    showOfflineBanner(false);
+    if(!usedCache)fadeOutLoading();
+  }catch(e){
+    if(usedCache){
+      showOfflineBanner(true);
+    } else {
+      showErrorState();
+    }
+  }finally{
+    isFetching=false;
+    if(refreshBtn)refreshBtn.textContent='↻';
+  }
+}
+
+/* Keep "last updated" relative label fresh */
+setInterval(()=>{if(lastFetchTs)updateLastUpdated(lastFetchTs,!CacheStore.isFresh({timestamp:lastFetchTs}));},60000);
+
+/* ============================================================
+   BOOTSTRAP
+   ============================================================ */
+ThemeManager.init();
+loadData(false);
+</script>
+</body>
+</html>
